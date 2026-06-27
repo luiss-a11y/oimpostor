@@ -180,7 +180,7 @@ footer .a{color:var(--accent);}
     </div>
   </div>
 
-  <p class="intro">Estes craques <b>parecem</b> ter algo em comum. Mas <b>um deles não pertence</b>. Use as pistas e desmascare o impostor — você só tem <b>um palpite</b>.</p>
+  <p class="intro">Estes craques <b>parecem</b> ter algo em comum. Mas há <b>impostor(es)</b> entre eles. Investigue com as pistas e desmascare quem não pertence — você tem <b>um único palpite</b>.</p>
 
   <div class="clue-panel">
     <div class="clue-head">
@@ -196,7 +196,7 @@ footer .a{color:var(--accent);}
 
   <div class="accuse" id="accuse-area">
     <button class="btn-accuse" id="btn-accuse" onclick="accuse()" disabled>Acusar o impostor</button>
-    <div class="warn">Escolha com cuidado: <b>só um palpite</b>.</div>
+    <div class="warn" id="accuse-warn">Selecione e acuse. <b>Um único palpite.</b></div>
   </div>
 
   <div id="result">
@@ -240,7 +240,12 @@ function rng(seed){let a=seed>>>0;return function(){a|=0;a=a+0x6D2B79F5|0;let t=
 function shuffle(arr,rand){const a=arr.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(rand()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function sample(arr,n,rand){return shuffle(arr,rand).slice(0,n);}
 
-const GROUP_SIZE=5;
+// Difficulty configs: [suspects, impostors, freeClue]
+const DIFF_CONFIG={
+  facil:   {suspects:5, impostors:1, freeClue:true},
+  medio:   {suspects:6, impostors:1, freeClue:false},
+  dificil: {suspects:7, impostors:2, freeClue:false}
+};
 const ACH_LBL=(typeof ACH_LABELS!=="undefined")?ACH_LABELS:{};
 
 // category helpers
@@ -270,17 +275,19 @@ function buildIndex(){
   ROSTER.forEach((p,i)=>{catsOf(p).forEach(c=>{const k=catKey(c);(CAT_PLAYERS[k]=CAT_PLAYERS[k]||{cat:c,idx:[]}).idx.push(i);});});
 }
 
-// Generate a puzzle: secret connection + (N-1) legit + 1 plausible impostor (unique)
+// Generate a puzzle: secret connection + legit + N plausible impostors
 function genPuzzle(seed,target){
   target=target||"medio";
+  const cfg=DIFF_CONFIG[target]||DIFF_CONFIG.medio;
+  const nSus=cfg.suspects, nImp=cfg.impostors, nLegit=nSus-nImp;
   const rand=rng(seed);
-  const viable=Object.values(CAT_PLAYERS).filter(o=>o.idx.length>=GROUP_SIZE);
+  const viable=Object.values(CAT_PLAYERS).filter(o=>o.idx.length>=nLegit);
   const order=shuffle(viable,rand);
   for(const entry of order){
     const conn=entry.cat, connKey=catKey(conn);
     const legitPool=entry.idx;
-    if(legitPool.length<GROUP_SIZE-1)continue;
-    const legit=sample(legitPool,GROUP_SIZE-1,rand);
+    if(legitPool.length<nLegit)continue;
+    const legit=sample(legitPool,nLegit,rand);
     // traits shared by legit (minus the connection)
     const legitTraits={};
     legit.forEach(i=>{const cs=catSetOf(ROSTER[i]);for(const k in cs)if(k!==connKey)legitTraits[k]=1;});
@@ -293,21 +300,25 @@ function genPuzzle(seed,target){
       let shared=0;for(const k in legitTraits)if(cs[k])shared++;
       if(shared>0)cands.push([j,shared]); // must share >=1 to be plausible
     }
-    if(!cands.length)continue;
+    if(cands.length<nImp)continue;
     // pick impostor pool by target difficulty
     let pool;
-    if(target==="facil"){cands.sort((a,b)=>a[1]-b[1]);pool=cands.slice(0,6);}
-    else if(target==="dificil"){cands.sort((a,b)=>b[1]-a[1]);pool=cands.slice(0,6);}
-    else{cands.sort((a,b)=>a[1]-b[1]);const mid=cands.length>>1;pool=cands.slice(Math.max(0,mid-3),mid+3);}
-    if(!pool.length)continue;
-    const impostor=pool[Math.floor(rand()*pool.length)][0];
-    // VERIFY: exactly one member lacks the connection, and it's the impostor
-    const members=legit.concat([impostor]);
+    if(target==="facil"){cands.sort((a,b)=>a[1]-b[1]);pool=cands.slice(0,Math.max(nImp*2,6));}
+    else if(target==="dificil"){cands.sort((a,b)=>b[1]-a[1]);pool=cands.slice(0,Math.max(nImp*2,6));}
+    else{cands.sort((a,b)=>a[1]-b[1]);const mid=cands.length>>1;pool=cands.slice(Math.max(0,mid-4),mid+4);if(pool.length<nImp)pool=cands;}
+    if(pool.length<nImp)continue;
+    const impostors=sample(pool.map(x=>x[0]),nImp,rand);
+    // VERIFY: exactly nImp members lack the connection, and they're the impostors
+    const members=legit.concat(impostors);
     const lacking=members.filter(m=>!catSetOf(ROSTER[m])[connKey]);
-    if(lacking.length!==1||lacking[0]!==impostor)continue;
-    const diff=(function(){const cs=catSetOf(ROSTER[impostor]);let n=0;for(const k in legitTraits)if(cs[k])n++;return n;})();
+    if(lacking.length!==nImp)continue;
+    let match=true;impostors.forEach(im=>{if(lacking.indexOf(im)<0)match=false;});
+    if(!match)continue;
+    // difficulty = avg shared traits of impostors
+    let totShared=0;impostors.forEach(im=>{const cs=catSetOf(ROSTER[im]);for(const k in legitTraits)if(cs[k])totShared++;});
+    const diff=totShared/nImp;
     const shuffled=shuffle(members,rand);
-    return {conn,connKey,legit,impostor,members:shuffled,difficulty:diff,target};
+    return {conn,connKey,legit,impostors,members:shuffled,difficulty:diff,target,nImp};
   }
   return genPuzzle(seed+1,target);
 }
@@ -320,28 +331,29 @@ function dailyTarget(){
 }
 function targetLabel(t){return {facil:"Fácil",medio:"Médio",dificil:"Difícil"}[t]||"Médio";}
 
-// Build progressive clues for a puzzle (revealed one at a time) — investigation tone
+// Build progressive clues — investigation tone. Clue 1 is FREE only on easy.
 function buildClues(pz){
   const clues=[];
-  const c=pz.conn, n=GROUP_SIZE-1;
+  const c=pz.conn, nLegit=pz.legit.length, nImp=pz.nImp;
+  const impWord=nImp>1?(nImp+" impostores"):"o impostor";
   // Clue 1: the TYPE of connection
-  clues.push("🗂️ Os arquivos indicam que a ligação entre eles é <b>"+connType(c)+"</b>.");
+  clues.push("🗂️ Os arquivos indicam que a ligação verdadeira do grupo é <b>"+connType(c)+"</b>.");
   // Clue 2: narrowing hint by type
-  if(c[0]==="club") clues.push("🏟️ "+n+" dos suspeitos defenderam <b>o mesmo clube</b> em algum momento da carreira.");
-  else if(c[0]==="ach") clues.push("🏆 "+n+" deles dividem <b>o mesmo título ou prêmio</b> na galeria.");
-  else if(c[0]==="nat") clues.push("🌍 "+n+" deles vestiram <b>a mesma camisa nacional</b>.");
-  else if(c[0]==="pos") clues.push("📋 "+n+" deles ocupavam <b>a mesma posição</b> em campo.");
-  else if(c[0]==="dec") clues.push("⏳ "+n+" deles tiveram <b>o auge na mesma década</b>.");
+  if(c[0]==="club") clues.push("🏟️ "+nLegit+" dos suspeitos defenderam <b>o mesmo clube</b> em algum momento.");
+  else if(c[0]==="ach") clues.push("🏆 "+nLegit+" deles dividem <b>o mesmo título ou prêmio</b>.");
+  else if(c[0]==="nat") clues.push("🌍 "+nLegit+" deles vestiram <b>a mesma camisa nacional</b>.");
+  else if(c[0]==="pos") clues.push("📋 "+nLegit+" deles ocupavam <b>a mesma posição</b> em campo.");
+  else if(c[0]==="dec") clues.push("⏳ "+nLegit+" deles tiveram <b>o auge na mesma década</b>.");
   // Clue 3: alibi — one confirmed innocent
   const legitName=ROSTER[pz.legit[0]].n;
-  clues.push("✔️ Álibi confirmado: <b>"+legitName+"</b> pertence ao grupo — <b>não</b> é o impostor.");
+  clues.push("✔️ Álibi confirmado: <b>"+legitName+"</b> pertence ao grupo — não é "+(nImp>1?"impostor":"o impostor")+".");
   // Clue 4: the full connection revealed
-  clues.push("🔓 Conexão decifrada: <b>"+connLabel(c)+"</b>. O intruso é quem não se encaixa nisso.");
+  clues.push("🔓 Conexão decifrada: <b>"+connLabel(c)+"</b>. "+(nImp>1?"Os intrusos são":"O intruso é")+" quem não se encaixa.");
   return clues;
 }
 
 // ── state ──
-let mode="daily", puzzle, clues, cluesShown, selected, over, won, soundOn=true, score=0, currentSeed=0;
+let mode="daily", puzzle, clues, cluesShown, selected=[], over, won, soundOn=true, score=0, currentSeed=0;
 let infDifficulty="medio", curTarget="medio";
 const MAX_CLUES=4;
 
@@ -359,16 +371,17 @@ function startGame(seed,gameMode){
   curTarget=(mode==="daily")?dailyTarget():infDifficulty;
   puzzle=genPuzzle(seed,curTarget);
   clues=buildClues(puzzle);
-  cluesShown=1;   // first clue always visible
-  selected=-1; over=false; won=false;
+  const cfg=DIFF_CONFIG[curTarget]||DIFF_CONFIG.medio;
+  cluesShown=cfg.freeClue?1:0;   // free first clue only on easy
+  selected=[]; over=false; won=false;
   document.getElementById("result").classList.remove("show");
   document.getElementById("accuse-area").style.display="block";
   document.getElementById("btn-clue").style.display="block";
   // restore (daily only)
   if(mode==="daily"){
     try{const s=JSON.parse(localStorage.getItem(todayKey())||"null");
-      if(s){cluesShown=s.cluesShown||1;
-        if(s.over){over=true;won=s.won;selected=s.selected;score=s.score;}}
+      if(s){cluesShown=(s.cluesShown!=null)?s.cluesShown:cluesShown;
+        if(s.over){over=true;won=s.won;selected=s.selected||[];score=s.score;}}
     }catch(e){}
   }
   renderClues(); renderSuspects(); updateAccuse(); renderDiffBadge();
@@ -439,7 +452,14 @@ function save(){
 function renderClues(){
   const list=document.getElementById("clue-list");
   list.innerHTML="";
+  if(cluesShown===0){
+    const div=document.createElement("div");
+    div.className="clue locked";
+    div.innerHTML="🔒 Nenhuma pista revelada. Você está por conta própria, detetive.";
+    list.appendChild(div);
+  }
   for(let i=0;i<MAX_CLUES;i++){
+    if(i>=cluesShown && cluesShown===0 && i>0)continue; // keep panel compact when none shown
     const div=document.createElement("div");
     if(i<cluesShown){div.className="clue";div.innerHTML="<b>Pista "+(i+1)+":</b> "+clues[i];}
     else{div.className="clue locked";div.textContent="Pista "+(i+1)+" — bloqueada";}
@@ -448,9 +468,9 @@ function renderClues(){
   document.getElementById("clue-count").textContent=cluesShown+"/"+MAX_CLUES+" reveladas";
   const btn=document.getElementById("btn-clue");
   if(cluesShown>=MAX_CLUES||over){btn.disabled=true;btn.textContent=over?"—":"Todas as pistas reveladas";}
-  else{btn.disabled=false;btn.textContent="Revelar próxima pista (−"+clueCost(cluesShown)+" pts)";}
+  else{btn.disabled=false;btn.textContent="Revelar "+(cluesShown===0?"a primeira pista":"próxima pista")+" (−"+clueCost(cluesShown)+" pts)";}
 }
-function clueCost(n){return [0,20,20,20,20][n]||20;}
+function clueCost(n){return 20;} // every revealed clue costs 20
 
 function revealClue(){
   if(over||cluesShown>=MAX_CLUES)return;
@@ -467,15 +487,16 @@ function avatarFor(name){
 function renderSuspects(){
   const box=document.getElementById("suspects");
   box.innerHTML="";
+  const impSet={};(puzzle.impostors||[]).forEach(im=>impSet[im]=1);
   puzzle.members.forEach((mi,k)=>{
     const el=document.createElement("div");
-    el.className="suspect"+(selected===mi?" sel":"");
+    el.className="suspect"+(selected.indexOf(mi)>=0?" sel":"");
     if(over){
-      if(mi===puzzle.impostor)el.className+=" reveal-imp";
+      if(impSet[mi])el.className+=" reveal-imp";
       else el.className+=" cleared";
     }
     const fileNo="#"+String((currentSeed%900)+101+k).slice(-3);
-    const tag=over?(mi===puzzle.impostor?'<span class="badge imp">IMPOSTOR</span>':'<span class="badge ok">LIMPO</span>'):'';
+    const tag=over?(impSet[mi]?'<span class="badge imp">IMPOSTOR</span>':'<span class="badge ok">LIMPO</span>'):'';
     el.innerHTML='<span class="fileno">FICHA '+fileNo+'</span>'
       +'<div class="mug">'+avatarFor(ROSTER[mi].n)+'</div>'
       +'<div class="nm">'+ROSTER[mi].n+'</div>'+tag;
@@ -486,16 +507,35 @@ function renderSuspects(){
 
 function selectSuspect(mi){
   if(over)return;
-  selected=(selected===mi)?-1:mi;
+  const idx=selected.indexOf(mi);
+  if(idx>=0)selected.splice(idx,1);
+  else{
+    if(selected.length>=puzzle.nImp){
+      // replace oldest selection when at limit (for nImp>1) or toggle for 1
+      if(puzzle.nImp===1)selected=[mi];
+      else{selected.shift();selected.push(mi);}
+    }else selected.push(mi);
+  }
   renderSuspects(); updateAccuse(); playSound("tick");
 }
-function updateAccuse(){document.getElementById("btn-accuse").disabled=(selected<0||over);}
+function updateAccuse(){
+  const btn=document.getElementById("btn-accuse");
+  btn.disabled=(selected.length!==puzzle.nImp||over);
+  btn.textContent=puzzle.nImp>1?("Acusar os "+puzzle.nImp+" impostores ("+selected.length+"/"+puzzle.nImp+")"):"Acusar o impostor";
+  const warn=document.getElementById("accuse-warn");
+  if(warn)warn.innerHTML=puzzle.nImp>1?("Aponte os <b>"+puzzle.nImp+" impostores</b>. Um único palpite."):"Selecione e acuse. <b>Um único palpite.</b>";
+}
 
 function accuse(){
-  if(selected<0||over)return;
-  over=true; won=(selected===puzzle.impostor);
-  // score: base 100 minus clue costs; 0 if wrong
-  let s=100;for(let i=1;i<cluesShown;i++)s-=clueCost(i);
+  if(selected.length!==puzzle.nImp||over)return;
+  over=true;
+  // win only if ALL selected are impostors (and count matches)
+  const impSet={};puzzle.impostors.forEach(im=>impSet[im]=1);
+  won=selected.every(s=>impSet[s]);
+  // score: base 100 minus 20 per clue revealed; 0 if wrong
+  let s=100-(cluesShown*20);
+  // bonus for harder configs
+  if(won && puzzle.nImp>1)s+=20;
   score=won?Math.max(s,20):0;
   recordResult();
   if(won)playSound("win");else playSound("lose");
@@ -511,10 +551,13 @@ function finish(restoring){
   const v=document.getElementById("verdict");
   v.textContent=won?"Caso resolvido!":"Você foi enganado";
   v.className="verdict "+(won?"win":"lose");
-  const imp=ROSTER[puzzle.impostor].n;
+  const impNames=puzzle.impostors.map(im=>ROSTER[im].n);
+  const impStr=impNames.map(n=>"<span class='imp'>"+n+"</span>").join(" e ");
+  const wasWere=puzzle.nImp>1?"Os impostores eram":"O impostor era";
+  const fitWord=puzzle.nImp>1?"se encaixam":"se encaixa";
   document.getElementById("reveal").innerHTML=
-    "O impostor era <span class='imp'>"+imp+"</span>.<br>A conexão do grupo: <b>"+connLabel(puzzle.conn)+"</b>"
-    +"<br><span style='font-size:12px;color:var(--mute)'>("+imp+" não se encaixa nessa conexão)</span>";
+    wasWere+" "+impStr+".<br>A conexão do grupo: <b>"+connLabel(puzzle.conn)+"</b>"
+    +"<br><span style='font-size:12px;color:var(--mute)'>("+(puzzle.nImp>1?"eles não":impNames[0]+" não")+" "+fitWord+" nessa conexão)</span>";
   document.getElementById("score-line").innerHTML=won?
     ("Pontuação: <span class='pts'>"+score+"</span> · "+cluesShown+" pista(s) · "+targetLabel(curTarget)):
     ("Pistas usadas: "+cluesShown+" · sem pontos desta vez");
@@ -570,23 +613,26 @@ function shareImage(){
   // verdict
   ctx.fillStyle=won?"#37d98a":"#ff5252";ctx.font="bold 34px Arial";
   ctx.fillText(won?"CASO RESOLVIDO":"FUI ENGANADO",W/2,184);
-  // suspect silhouettes row, impostor highlighted
-  const n=puzzle.members.length, cell=80, gap=14, totW=n*cell+(n-1)*gap, sx2=(W-totW)/2;
+  // suspect silhouettes row, impostors highlighted (cell adapts to count)
+  const impSet={};puzzle.impostors.forEach(im=>impSet[im]=1);
+  const n=puzzle.members.length, gap=10;
+  const cell=Math.min(80,Math.floor((W-80-(n-1)*gap)/n));
+  const totW=n*cell+(n-1)*gap, sx2=(W-totW)/2;
   let x=sx2, y=240;
   puzzle.members.forEach(mi=>{
-    const isImp=mi===puzzle.impostor;
+    const isImp=impSet[mi];
     ctx.fillStyle=isImp?"rgba(255,82,82,.2)":"#15171e";
     roundRect(ctx,x,y,cell,cell,12);ctx.fill();
     ctx.strokeStyle=isImp?"#ff5252":"#2a2e3a";ctx.lineWidth=2;roundRect(ctx,x,y,cell,cell,12);ctx.stroke();
-    ctx.font="34px Arial";ctx.fillStyle=isImp?"#ff7b7b":"#5a5f6e";ctx.textAlign="center";
-    ctx.fillText("🕴️",x+cell/2,y+cell/2+6);
-    if(isImp){ctx.fillStyle="#ff5252";ctx.font="bold 20px Arial";ctx.fillText("✗",x+cell-12,y+20);}
+    ctx.font=Math.floor(cell*0.42)+"px Arial";ctx.fillStyle=isImp?"#ff7b7b":"#5a5f6e";ctx.textAlign="center";
+    ctx.fillText("🕴️",x+cell/2,y+cell/2+cell*0.08);
+    if(isImp){ctx.fillStyle="#ff5252";ctx.font="bold 18px Arial";ctx.fillText("✗",x+cell-12,y+20);}
     x+=cell+gap;
   });
   // score / clues
   ctx.fillStyle="#cdd2dd";ctx.font="20px Arial";
   if(won)ctx.fillText("Pontuação: "+score+" · "+cluesShown+" pista(s) · "+targetLabel(curTarget),W/2,400);
-  else ctx.fillText("O impostor escapou desta vez",W/2,400);
+  else ctx.fillText((puzzle.nImp>1?"Os impostores escaparam":"O impostor escapou")+" desta vez",W/2,400);
   // connection (spoiler-light: only shown as the theme)
   ctx.fillStyle="#ffc24b";ctx.font="bold 22px Arial";
   ctx.fillText("A conexão era:",W/2,460);
@@ -642,13 +688,14 @@ function closeModal(){document.getElementById("overlay").classList.remove("show"
 function closeModalBg(e){if(e.target.id==="overlay")closeModal();}
 function showHelp(){
   openModal('<button class="close" onclick="closeModal()">×</button><h2>🕵️ Como jogar</h2>'
-    +'<p>Você vê <b>5 craques</b> que parecem ter uma conexão em comum (mesmo clube, seleção, conquista...).</p>'
-    +'<p>Mas <b>um deles é o impostor</b> — não compartilha essa conexão. Os outros 4, sim.</p>'
-    +'<p>No começo você não sabe qual é a conexão. Revele <b>pistas</b> para descobrir — mas cada pista reduz sua pontuação.</p>'
-    +'<p>Quando achar que sabe, <b>acuse o impostor</b>. Atenção: você só tem <b>UM palpite</b>!</p>'
-    +'<p>Quanto menos pistas usar, mais pontos. Um novo caso a cada dia.</p>'
-    +'<p>📈 A dificuldade do caso diário muda durante a semana (segunda mais fácil, fim de semana mais difícil). No modo <b>Infinito</b>, você escolhe o nível.</p>'
-    +'<p>🔥 Mantenha sua <b>sequência</b> resolvendo casos dias seguidos!</p>');
+    +'<p>Você vê um grupo de craques que <b>parecem</b> ter uma conexão em comum (mesmo clube, seleção, conquista...).</p>'
+    +'<p>Mas há <b>impostor(es)</b> entre eles — quem <b>não</b> compartilha essa conexão. Descubra quem.</p>'
+    +'<p>No começo você não sabe a conexão. Revele <b>pistas</b> para deduzir — mas <b>cada pista custa 20 pontos</b>.</p>'
+    +'<p>Aponte o(s) impostor(es) e acuse. Atenção: <b>UM único palpite</b>!</p>'
+    +'<p>📈 A dificuldade muda os casos:</p>'
+    +'<p style="margin-left:6px;font-size:12px;">• <b style="color:var(--green)">Fácil</b>: 5 suspeitos, 1 impostor, 1 pista grátis<br>• <b style="color:var(--gold)">Médio</b>: 6 suspeitos, 1 impostor, sem pista grátis<br>• <b style="color:var(--accent)">Difícil</b>: 7 suspeitos, <b>2 impostores</b>, sem pista grátis</p>'
+    +'<p>No <b>Diário</b>, a dificuldade sobe durante a semana. No <b>Infinito</b>, você escolhe.</p>'
+    +'<p>🔥 Resolva casos dias seguidos para manter sua <b>sequência</b>!</p>');
 }
 function maybeOnboard(){
   let seen=false;try{seen=localStorage.getItem("imp_onboarded")==="1";}catch(e){}
@@ -658,7 +705,7 @@ function maybeOnboard(){
     +'<div style="font-family:\'Oswald\',sans-serif;font-size:28px;font-weight:700;">O <span style="color:#ff5252">IMPOSTOR</span></div></div>'
     +'<p style="margin-top:14px;"><b>🕵️ A missão:</b> 5 craques parecem ter algo em comum. Um é o impostor. Descubra qual.</p>'
     +'<p><b>🔍 As pistas:</b> revele pistas para entender a conexão — mas cada uma custa pontos.</p>'
-    +'<p><b>⚠️ O risco:</b> você só tem <b>um palpite</b>. Escolha com cuidado.</p>'
+    +'<p><b>⚠️ O risco:</b> um único palpite, e pode haver mais de um impostor. Escolha com cuidado.</p>'
     +'<button class="onb-cta" onclick="finishOnboard()">Investigar ⚽</button>');
 }
 function finishOnboard(){try{localStorage.setItem("imp_onboarded","1");}catch(e){}closeModal();}
