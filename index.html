@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>O Impostor — Futzone</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d0e12">
+<link rel="icon" href="icon-192.png">
+
+<meta name="description" content="Um deles não pertence ao grupo. Descubra o craque impostor usando as pistas. Um desafio de dedução por dia.">
+<meta property="og:title" content="O Impostor — Futzone">
+<meta property="og:description" content="Um craque não pertence ao grupo. Descubra o impostor. Um desafio de dedução por dia.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0d0e12;          /* interrogation dark */
+  --panel:#15171e;
+  --panel2:#1c1f28;
+  --ink:#eef0f4;
+  --mute:#8a8f9e;
+  --chalk:#cdd2dd;
+  --line:#2a2e3a;
+  --accent:#ff5252;      /* suspect red */
+  --accent2:#ff7b7b;
+  --gold:#ffc24b;        /* clue spotlight amber */
+  --green:#37d98a;       /* correct */
+  --blue:#5b8def;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{background:var(--bg);color:var(--ink);font-family:'Roboto Mono',monospace;}
+body{max-width:560px;margin:0 auto;padding:0 14px 60px;min-height:100vh;}
+
+/* spotlight vignette */
+body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse 80% 50% at 50% 0%,rgba(255,194,75,.07),transparent 70%);}
+.app{position:relative;z-index:1;}
+
+header{display:flex;align-items:center;justify-content:space-between;padding:18px 2px 8px;}
+.brand{display:flex;flex-direction:column;}
+.brand .top{font-family:'Oswald',sans-serif;font-weight:700;font-size:22px;letter-spacing:2px;line-height:1;text-transform:uppercase;}
+.brand .top span{color:var(--accent);}
+.brand .sub{font-size:10px;color:var(--mute);letter-spacing:2px;margin-top:3px;text-transform:uppercase;}
+.tools{display:flex;gap:6px;}
+.tool{width:34px;height:34px;border:1px solid var(--line);background:var(--panel);color:var(--mute);border-radius:7px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.tool:active{transform:translateY(1px);}
+
+.intro{text-align:center;color:var(--mute);font-size:12.5px;line-height:1.5;margin:6px 0 12px;}
+.intro b{color:var(--chalk);}
+
+/* mode tabs */
+.tabs{display:flex;gap:6px;margin:4px 0 14px;}
+.tab{flex:1;text-align:center;padding:9px;border:1px solid var(--line);background:var(--panel);color:var(--mute);border-radius:8px;font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;}
+.tab.active{background:var(--accent);color:#1a0606;border-color:var(--accent);}
+
+/* clue panel */
+.clue-panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px;}
+.clue-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.clue-title{font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);}
+.clue-count{font-size:11px;color:var(--mute);}
+.clue-list{display:flex;flex-direction:column;gap:8px;}
+.clue{font-size:13px;line-height:1.4;color:var(--chalk);padding:9px 12px;background:var(--panel2);border-left:3px solid var(--gold);border-radius:6px;animation:slideIn .3s ease;}
+@keyframes slideIn{from{opacity:0;transform:translateX(-8px);}to{opacity:1;transform:translateX(0);}}
+.clue.locked{color:var(--mute);border-left-color:var(--line);font-style:italic;}
+.btn-clue{width:100%;margin-top:10px;background:var(--panel2);border:1px dashed var(--gold);color:var(--gold);border-radius:8px;font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;letter-spacing:1px;padding:11px;cursor:pointer;text-transform:uppercase;}
+.btn-clue:disabled{opacity:.4;cursor:not-allowed;border-style:solid;border-color:var(--line);color:var(--mute);}
+.btn-clue:active:not(:disabled){transform:translateY(1px);}
+
+/* suspects lineup */
+.lineup-label{text-align:center;font-size:11px;color:var(--mute);letter-spacing:2px;text-transform:uppercase;margin:6px 0 10px;}
+.suspects{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+.suspect{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:30px 12px 14px;cursor:pointer;text-align:center;transition:transform .1s,border-color .15s,background .15s;overflow:hidden;}
+.suspect::before{content:"";position:absolute;top:0;left:0;right:0;height:22px;background:repeating-linear-gradient(45deg,rgba(255,255,255,.02) 0 6px,transparent 6px 12px);border-bottom:1px solid var(--line);}
+.suspect:active{transform:scale(.97);}
+.suspect.sel{border-color:var(--accent);background:rgba(255,82,82,.1);box-shadow:0 0 0 1px var(--accent) inset;}
+.suspect .fileno{position:absolute;top:5px;left:0;right:0;font-size:9px;color:var(--mute);font-weight:700;letter-spacing:1.5px;z-index:1;}
+.suspect .mug{font-size:34px;line-height:1;margin-bottom:7px;filter:grayscale(.4);}
+.suspect .nm{font-size:13px;font-weight:600;color:var(--ink);line-height:1.2;}
+.suspect.cleared{opacity:.7;}
+.suspect.cleared .mug{filter:grayscale(.85);opacity:.85;}
+.suspect.reveal-imp{border-color:var(--accent);background:rgba(255,82,82,.22);box-shadow:0 0 18px rgba(255,82,82,.25);}
+.suspect.reveal-imp .mug{filter:none;}
+.suspect .badge{display:inline-block;margin-top:6px;font-size:9px;font-weight:700;letter-spacing:1px;padding:2px 8px;border-radius:20px;}
+.suspect .badge.imp{background:var(--accent);color:#1a0606;}
+.suspect .badge.ok{background:var(--line);color:var(--mute);}
+
+/* difficulty badge + picker */
+.diff-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;min-height:32px;}
+.diff-badge{font-family:'Oswald',sans-serif;font-weight:600;font-size:12px;letter-spacing:1px;text-transform:uppercase;padding:5px 12px;border-radius:20px;border:1px solid;}
+.diff-badge.d-easy{color:var(--green);border-color:var(--green);background:rgba(55,217,138,.08);}
+.diff-badge.d-med{color:var(--gold);border-color:var(--gold);background:rgba(255,194,75,.08);}
+.diff-badge.d-hard{color:var(--accent);border-color:var(--accent);background:rgba(255,82,82,.08);}
+.diff-picker{display:flex;gap:5px;}
+.diff-opt{font-size:11px;font-family:'Oswald',sans-serif;font-weight:600;letter-spacing:.5px;padding:6px 11px;border-radius:7px;border:1px solid var(--line);background:var(--panel);color:var(--mute);cursor:pointer;text-transform:uppercase;}
+.diff-opt.active{background:var(--accent);color:#1a0606;border-color:var(--accent);}
+
+/* stats panel */
+.stats-panel{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:16px 0 4px;}
+.stats-panel .stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 4px;}
+.stats-panel .sv{font-family:'Oswald',sans-serif;font-weight:700;font-size:20px;color:var(--ink);line-height:1;}
+.stats-panel .sl{font-size:9px;color:var(--mute);letter-spacing:.5px;text-transform:uppercase;margin-top:4px;}
+
+/* accuse */
+.accuse{margin-top:16px;}
+.btn-accuse{width:100%;background:var(--accent);color:#1a0606;border:none;border-radius:10px;font-family:'Oswald',sans-serif;font-weight:700;font-size:16px;letter-spacing:1px;padding:14px;cursor:pointer;text-transform:uppercase;}
+.btn-accuse:disabled{opacity:.4;cursor:not-allowed;}
+.btn-accuse:active:not(:disabled){transform:translateY(1px);}
+.warn{text-align:center;font-size:11px;color:var(--mute);margin-top:8px;letter-spacing:.5px;}
+.warn b{color:var(--accent2);}
+
+/* result */
+#result{display:none;text-align:center;margin-top:18px;}
+#result.show{display:block;animation:slideIn .4s ease;}
+#result .verdict{font-family:'Oswald',sans-serif;font-weight:700;font-size:26px;text-transform:uppercase;letter-spacing:1px;}
+#result .verdict.win{color:var(--green);}
+#result .verdict.lose{color:var(--accent);}
+#result .reveal{font-size:14px;color:var(--chalk);margin-top:10px;line-height:1.6;}
+#result .reveal b{color:var(--gold);}
+#result .reveal .imp{color:var(--accent2);font-weight:700;}
+.score-line{font-family:'Oswald',sans-serif;font-size:15px;color:var(--ink);margin-top:12px;letter-spacing:1px;}
+.score-line .pts{color:var(--gold);font-weight:700;}
+.btn-row{display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap;}
+.btn{font-family:'Oswald',sans-serif;font-weight:700;font-size:14px;letter-spacing:1px;text-transform:uppercase;padding:11px 18px;border-radius:8px;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink);}
+.btn.primary{background:var(--green);color:#04140b;border-color:var(--green);}
+.btn:active{transform:translateY(1px);}
+.next-in{font-size:11px;color:var(--mute);margin-top:12px;letter-spacing:1px;}
+
+/* cross-game */
+.cross-game{display:flex;align-items:center;gap:12px;margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--panel);text-decoration:none;color:inherit;}
+.cross-game .cg-ball{font-size:22px;}
+.cross-game .cg-text{flex:1;}
+.cross-game .cg-text b{display:block;font-family:'Oswald',sans-serif;font-size:14px;letter-spacing:.5px;}
+.cross-game .cg-text span{font-size:11px;color:var(--mute);}
+.cross-game .cg-arrow{color:var(--accent);font-size:18px;}
+
+footer{text-align:center;margin-top:20px;font-size:11px;color:var(--mute);letter-spacing:1px;}
+footer .a{color:var(--accent);}
+
+/* modal */
+#overlay{display:none;position:fixed;inset:0;background:rgba(4,5,8,.82);z-index:50;align-items:center;justify-content:center;padding:18px;}
+#overlay.show{display:flex;}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:420px;width:100%;padding:24px;position:relative;max-height:86vh;overflow-y:auto;}
+.modal h2{font-family:'Oswald',sans-serif;letter-spacing:1px;margin-bottom:14px;text-transform:uppercase;}
+.modal p{font-size:13px;line-height:1.6;color:var(--chalk);margin-bottom:10px;}
+.modal .close{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--mute);font-size:24px;cursor:pointer;}
+.onb-cta{width:100%;background:var(--accent);color:#1a0606;border:none;border-radius:8px;font-family:'Oswald',sans-serif;font-weight:700;font-size:16px;letter-spacing:1px;padding:13px;cursor:pointer;text-transform:uppercase;margin-top:8px;}
+
+#toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--panel2);border:1px solid var(--line);color:var(--ink);padding:11px 18px;border-radius:8px;font-size:13px;opacity:0;transition:all .3s;z-index:60;pointer-events:none;white-space:nowrap;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <div class="top">O <span>IMPOSTOR</span></div>
+      <div class="sub">Futzone · dedução diária</div>
+    </div>
+    <div class="tools">
+      <button class="tool" onclick="showHelp()" title="Como jogar">?</button>
+      <button class="tool" id="btn-sound" onclick="toggleSound()" title="Som">🔊</button>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" id="tab-daily" onclick="switchMode('daily')">Diário</div>
+    <div class="tab" id="tab-infinite" onclick="switchMode('infinite')">Infinito</div>
+  </div>
+
+  <div class="diff-row">
+    <span class="diff-badge d-med" id="diff-badge">Médio</span>
+    <div class="diff-picker" id="diff-picker" style="display:none;">
+      <button class="diff-opt" id="diff-facil" onclick="setInfDifficulty('facil')">Fácil</button>
+      <button class="diff-opt" id="diff-medio" onclick="setInfDifficulty('medio')">Médio</button>
+      <button class="diff-opt" id="diff-dificil" onclick="setInfDifficulty('dificil')">Difícil</button>
+    </div>
+  </div>
+
+  <p class="intro">Estes craques <b>parecem</b> ter algo em comum. Mas <b>um deles não pertence</b>. Use as pistas e desmascare o impostor — você só tem <b>um palpite</b>.</p>
+
+  <div class="clue-panel">
+    <div class="clue-head">
+      <span class="clue-title">🔍 Pistas</span>
+      <span class="clue-count" id="clue-count"></span>
+    </div>
+    <div class="clue-list" id="clue-list"></div>
+    <button class="btn-clue" id="btn-clue" onclick="revealClue()">Revelar próxima pista</button>
+  </div>
+
+  <div class="lineup-label">— os suspeitos —</div>
+  <div class="suspects" id="suspects"></div>
+
+  <div class="accuse" id="accuse-area">
+    <button class="btn-accuse" id="btn-accuse" onclick="accuse()" disabled>Acusar o impostor</button>
+    <div class="warn">Escolha com cuidado: <b>só um palpite</b>.</div>
+  </div>
+
+  <div id="result">
+    <div class="verdict" id="verdict"></div>
+    <div class="reveal" id="reveal"></div>
+    <div class="score-line" id="score-line"></div>
+    <div class="stats-panel" id="stats-panel" style="display:none;"></div>
+    <div class="btn-row">
+      <button class="btn primary" id="share">Compartilhar 🖼️</button>
+      <button class="btn" id="btn-again" style="display:none;" onclick="nextInfinite()">Outro caso ⚽</button>
+    </div>
+    <div class="next-in" id="next-in"></div>
+  </div>
+
+  <a class="cross-game" href="https://ligadoscraques.futzone.com.br">
+    <span class="cg-ball">🏆</span>
+    <span class="cg-text"><b>Jogue também Liga dos Craques</b><span>Agrupe 16 craques em 4 grupos</span></span>
+    <span class="cg-arrow">→</span>
+  </a>
+  <a class="cross-game" href="https://craquedodia.futzone.com.br">
+    <span class="cg-ball">🕵️</span>
+    <span class="cg-text"><b>Jogue também Craque do Dia</b><span>Descubra o craque misterioso</span></span>
+    <span class="cg-arrow">→</span>
+  </a>
+
+  <footer>oimpostor<span class="a">.</span>futzone.com.br</footer>
+</div>
+
+<div id="overlay" onclick="closeModalBg(event)"><div class="modal" id="modal-content"></div></div>
+<div id="toast"></div>
+
+<script>
+const ROSTER=[{"n":"Pelé","nat":"Brasil","pos":"Atacante","dec":1950,"cl":["Santos","Cosmos"],"ach":["wc1970","wc1958"]},{"n":"Garrincha","nat":"Brasil","pos":"Ponta","dec":1950,"cl":["Botafogo"],"ach":["wc1958"]},{"n":"Zico","nat":"Brasil","pos":"Meia","dec":1970,"cl":["Flamengo","Udinese"]},{"n":"Sócrates","nat":"Brasil","pos":"Meia","dec":1970,"cl":["Corinthians","Fiorentina"]},{"n":"Rivelino","nat":"Brasil","pos":"Meia","dec":1960,"cl":["Corinthians","Fluminense"],"ach":["wc1970"]},{"n":"Romário","nat":"Brasil","pos":"Atacante","dec":1980,"cl":["Vasco","PSV","Barcelona"],"ach":["wc1994"]},{"n":"Ronaldo","nat":"Brasil","pos":"Atacante","dec":1990,"cl":["Inter de Milão","Real Madrid","Barcelona","Corinthians"],"ach":["wc2002","ballon"]},{"n":"Ronaldinho Gaúcho","nat":"Brasil","pos":"Meia-atacante","dec":1990,"cl":["Grêmio","Barcelona","Milan","Flamengo"],"ach":["wc2002","ballon","ucl","liberta"]},{"n":"Rivaldo","nat":"Brasil","pos":"Meia-atacante","dec":1990,"cl":["Palmeiras","Barcelona"],"ach":["wc2002","ballon"]},{"n":"Kaká","nat":"Brasil","pos":"Meia","dec":2000,"cl":["São Paulo","Milan","Real Madrid"],"ach":["wc2002","ballon","ucl"]},{"n":"Cafu","nat":"Brasil","pos":"Lateral","dec":1990,"cl":["São Paulo","Roma","Milan"],"ach":["wc2002","wc1994"]},{"n":"Roberto Carlos","nat":"Brasil","pos":"Lateral","dec":1990,"cl":["Inter de Milão","Real Madrid"],"ach":["wc2002","ucl"]},{"n":"Neymar","nat":"Brasil","pos":"Atacante","dec":2010,"cl":["Santos","Barcelona","PSG","Al-Hilal"],"ach":["ucl","liberta"]},{"n":"Dida","nat":"Brasil","pos":"Goleiro","dec":1990,"cl":["Corinthians","Milan"],"ach":["wc2002"]},{"n":"Taffarel","nat":"Brasil","pos":"Goleiro","dec":1980,"cl":["Internacional","Galatasaray"],"ach":["wc1994"]},{"n":"Bebeto","nat":"Brasil","pos":"Atacante","dec":1980,"cl":["Vasco","Flamengo","Deportivo"],"ach":["wc1994"]},{"n":"Carlos Alberto Torres","nat":"Brasil","pos":"Lateral","dec":1960,"cl":["Santos","Fluminense"],"ach":["wc1970"]},{"n":"Falcão","nat":"Brasil","pos":"Meia","dec":1970,"cl":["Internacional","Roma"]},{"n":"Tostão","nat":"Brasil","pos":"Atacante","dec":1960,"cl":["Cruzeiro"],"ach":["wc1970"]},{"n":"Jairzinho","nat":"Brasil","pos":"Ponta","dec":1960,"cl":["Botafogo"],"ach":["wc1970"]},{"n":"Gérson","nat":"Brasil","pos":"Meia","dec":1960,"cl":["Botafogo","Flamengo"]},{"n":"Adriano","nat":"Brasil","pos":"Atacante","dec":2000,"cl":["Flamengo","Inter de Milão"]},{"n":"Robinho","nat":"Brasil","pos":"Atacante","dec":2000,"cl":["Santos","Real Madrid","Milan"]},{"n":"Ronaldo Angelim","nat":"Brasil","pos":"Zagueiro","dec":2000,"cl":["Flamengo"]},{"n":"Diego Maradona","nat":"Argentina","pos":"Meia-atacante","dec":1970,"cl":["Boca Juniors","Napoli","Barcelona"]},{"n":"Lionel Messi","nat":"Argentina","pos":"Atacante","dec":2000,"cl":["Barcelona","PSG","Inter Miami"],"ach":["ballon","ucl"]},{"n":"Gabriel Batistuta","nat":"Argentina","pos":"Atacante","dec":1990,"cl":["Fiorentina","Roma"]},{"n":"Juan Román Riquelme","nat":"Argentina","pos":"Meia","dec":1990,"cl":["Boca Juniors","Villarreal"],"ach":["liberta"]},{"n":"Sergio Agüero","nat":"Argentina","pos":"Atacante","dec":2000,"cl":["Atlético de Madrid","Manchester City"]},{"n":"Ángel Di María","nat":"Argentina","pos":"Ponta","dec":2000,"cl":["Benfica","Real Madrid","PSG"]},{"n":"Daniel Passarella","nat":"Argentina","pos":"Zagueiro","dec":1970,"cl":["River Plate"]},{"n":"Mario Kempes","nat":"Argentina","pos":"Atacante","dec":1970,"cl":["Valencia"]},{"n":"Javier Zanetti","nat":"Argentina","pos":"Lateral","dec":1990,"cl":["Inter de Milão"]},{"n":"Emiliano Martínez","nat":"Argentina","pos":"Goleiro","dec":2010,"cl":["Aston Villa"]},{"n":"Hernán Crespo","nat":"Argentina","pos":"Atacante","dec":1990,"cl":["Parma","Inter de Milão","Chelsea"]},{"n":"Carlos Tévez","nat":"Argentina","pos":"Atacante","dec":2000,"cl":["Boca Juniors","Manchester United","Manchester City"],"ach":["liberta"]},{"n":"Zinedine Zidane","nat":"França","pos":"Meia","dec":1980,"cl":["Juventus","Real Madrid"],"ach":["ballon"]},{"n":"Thierry Henry","nat":"França","pos":"Atacante","dec":1990,"cl":["Arsenal","Barcelona"]},{"n":"Michel Platini","nat":"França","pos":"Meia","dec":1970,"cl":["Saint-Étienne","Juventus"],"ach":["ballon"]},{"n":"Kylian Mbappé","nat":"França","pos":"Atacante","dec":2010,"cl":["Monaco","PSG","Real Madrid"]},{"n":"Patrick Vieira","nat":"França","pos":"Meia","dec":1990,"cl":["Arsenal","Juventus"]},{"n":"Didier Deschamps","nat":"França","pos":"Meia","dec":1990,"cl":["Marselha","Juventus"]},{"n":"Karim Benzema","nat":"França","pos":"Atacante","dec":2000,"cl":["Lyon","Real Madrid"],"ach":["ballon","ucl"]},{"n":"Antoine Griezmann","nat":"França","pos":"Atacante","dec":2010,"cl":["Atlético de Madrid","Barcelona"]},{"n":"Fabien Barthez","nat":"França","pos":"Goleiro","dec":1990,"cl":["Marselha","Manchester United"]},{"n":"Marcel Desailly","nat":"França","pos":"Zagueiro","dec":1990,"cl":["Milan","Chelsea"]},{"n":"Robert Pirès","nat":"França","pos":"Meia","dec":1990,"cl":["Arsenal"]},{"n":"David Trezeguet","nat":"França","pos":"Atacante","dec":1990,"cl":["Monaco","Juventus"]},{"n":"Roberto Baggio","nat":"Itália","pos":"Meia-atacante","dec":1980,"cl":["Juventus","Milan"],"ach":["ballon"]},{"n":"Paolo Maldini","nat":"Itália","pos":"Zagueiro","dec":1980,"cl":["Milan"],"ach":["ucl"]},{"n":"Francesco Totti","nat":"Itália","pos":"Meia-atacante","dec":1990,"cl":["Roma"],"ach":["wc2006"]},{"n":"Alessandro Del Piero","nat":"Itália","pos":"Atacante","dec":1990,"cl":["Juventus"],"ach":["wc2006"]},{"n":"Gianluigi Buffon","nat":"Itália","pos":"Goleiro","dec":1990,"cl":["Parma","Juventus"],"ach":["wc2006"]},{"n":"Andrea Pirlo","nat":"Itália","pos":"Meia","dec":2000,"cl":["Milan","Juventus"],"ach":["wc2006","ucl"]},{"n":"Paolo Rossi","nat":"Itália","pos":"Atacante","dec":1980,"cl":["Juventus"]},{"n":"Franco Baresi","nat":"Itália","pos":"Zagueiro","dec":1980,"cl":["Milan"]},{"n":"Fabio Cannavaro","nat":"Itália","pos":"Zagueiro","dec":1990,"cl":["Parma","Juventus","Real Madrid"],"ach":["wc2006","ballon"]},{"n":"Alessandro Nesta","nat":"Itália","pos":"Zagueiro","dec":1990,"cl":["Lazio","Milan"],"ach":["wc2006"]},{"n":"Gianluca Vialli","nat":"Itália","pos":"Atacante","dec":1980,"cl":["Sampdoria","Juventus"]},{"n":"Roberto Mancini","nat":"Itália","pos":"Atacante","dec":1980,"cl":["Sampdoria","Lazio"]},{"n":"Christian Vieri","nat":"Itália","pos":"Atacante","dec":1990,"cl":["Inter de Milão","Lazio"]},{"n":"Filippo Inzaghi","nat":"Itália","pos":"Atacante","dec":1990,"cl":["Juventus","Milan"]},{"n":"Johan Cruyff","nat":"Holanda","pos":"Atacante","dec":1960,"cl":["Ajax","Barcelona"],"ach":["ballon"]},{"n":"Marco van Basten","nat":"Holanda","pos":"Atacante","dec":1980,"cl":["Ajax","Milan"],"ach":["ballon"]},{"n":"Ruud Gullit","nat":"Holanda","pos":"Meia-atacante","dec":1980,"cl":["PSV","Milan"],"ach":["ballon"]},{"n":"Frank Rijkaard","nat":"Holanda","pos":"Meia","dec":1980,"cl":["Ajax","Milan"]},{"n":"Dennis Bergkamp","nat":"Holanda","pos":"Atacante","dec":1990,"cl":["Ajax","Arsenal"]},{"n":"Ruud van Nistelrooy","nat":"Holanda","pos":"Atacante","dec":1990,"cl":["PSV","Manchester United","Real Madrid"]},{"n":"Robin van Persie","nat":"Holanda","pos":"Atacante","dec":2000,"cl":["Arsenal","Manchester United"]},{"n":"Arjen Robben","nat":"Holanda","pos":"Ponta","dec":2000,"cl":["Chelsea","Real Madrid","Bayern de Munique"],"ach":["ucl"]},{"n":"Wesley Sneijder","nat":"Holanda","pos":"Meia","dec":2000,"cl":["Ajax","Inter de Milão"],"ach":["ucl"]},{"n":"Edwin van der Sar","nat":"Holanda","pos":"Goleiro","dec":1990,"cl":["Ajax","Manchester United"],"ach":["ucl"]},{"n":"Clarence Seedorf","nat":"Holanda","pos":"Meia","dec":1990,"cl":["Ajax","Real Madrid","Milan"],"ach":["ucl"]},{"n":"Patrick Kluivert","nat":"Holanda","pos":"Atacante","dec":1990,"cl":["Ajax","Barcelona"]},{"n":"Franz Beckenbauer","nat":"Alemanha","pos":"Zagueiro","dec":1960,"cl":["Bayern de Munique","Cosmos"],"ach":["ballon"]},{"n":"Gerd Müller","nat":"Alemanha","pos":"Atacante","dec":1960,"cl":["Bayern de Munique"]},{"n":"Lothar Matthäus","nat":"Alemanha","pos":"Meia","dec":1980,"cl":["Bayern de Munique","Inter de Milão"],"ach":["ballon"]},{"n":"Jürgen Klinsmann","nat":"Alemanha","pos":"Atacante","dec":1980,"cl":["Inter de Milão","Tottenham","Bayern de Munique"]},{"n":"Oliver Kahn","nat":"Alemanha","pos":"Goleiro","dec":1990,"cl":["Bayern de Munique"]},{"n":"Michael Ballack","nat":"Alemanha","pos":"Meia","dec":1990,"cl":["Bayern de Munique","Chelsea"]},{"n":"Miroslav Klose","nat":"Alemanha","pos":"Atacante","dec":2000,"cl":["Werder Bremen","Bayern de Munique","Lazio"],"ach":["wc2014"]},{"n":"Manuel Neuer","nat":"Alemanha","pos":"Goleiro","dec":2000,"cl":["Schalke","Bayern de Munique"],"ach":["wc2014","ucl"]},{"n":"Philipp Lahm","nat":"Alemanha","pos":"Lateral","dec":2000,"cl":["Bayern de Munique"],"ach":["wc2014","ucl"]},{"n":"Bastian Schweinsteiger","nat":"Alemanha","pos":"Meia","dec":2000,"cl":["Bayern de Munique","Manchester United"],"ach":["wc2014","ucl"]},{"n":"Thomas Müller","nat":"Alemanha","pos":"Meia-atacante","dec":2010,"cl":["Bayern de Munique"],"ach":["wc2014"]},{"n":"Toni Kroos","nat":"Alemanha","pos":"Meia","dec":2010,"cl":["Bayern de Munique","Real Madrid"],"ach":["wc2014","ucl"]},{"n":"Andrés Iniesta","nat":"Espanha","pos":"Meia","dec":2000,"cl":["Barcelona"],"ach":["wc2010","ucl","euro"]},{"n":"Xavi","nat":"Espanha","pos":"Meia","dec":2000,"cl":["Barcelona"],"ach":["wc2010","ucl","euro"]},{"n":"Iker Casillas","nat":"Espanha","pos":"Goleiro","dec":2000,"cl":["Real Madrid","Porto"],"ach":["wc2010","ucl","euro"]},{"n":"Sergio Ramos","nat":"Espanha","pos":"Zagueiro","dec":2000,"cl":["Sevilla","Real Madrid","PSG"],"ach":["wc2010","ucl","euro"]},{"n":"Raúl","nat":"Espanha","pos":"Atacante","dec":1990,"cl":["Real Madrid"],"ach":["ucl"]},{"n":"Fernando Torres","nat":"Espanha","pos":"Atacante","dec":2000,"cl":["Atlético de Madrid","Liverpool","Chelsea"],"ach":["wc2010","euro"]},{"n":"David Villa","nat":"Espanha","pos":"Atacante","dec":2000,"cl":["Valencia","Barcelona"],"ach":["wc2010","euro"]},{"n":"Carles Puyol","nat":"Espanha","pos":"Zagueiro","dec":2000,"cl":["Barcelona"],"ach":["wc2010","euro"]},{"n":"Sergio Busquets","nat":"Espanha","pos":"Meia","dec":2000,"cl":["Barcelona"],"ach":["wc2010","ucl","euro"]},{"n":"David Silva","nat":"Espanha","pos":"Meia","dec":2000,"cl":["Valencia","Manchester City"],"ach":["euro"]},{"n":"Gerard Piqué","nat":"Espanha","pos":"Zagueiro","dec":2000,"cl":["Manchester United","Barcelona"],"ach":["wc2010","ucl","euro"]},{"n":"Fernando Hierro","nat":"Espanha","pos":"Zagueiro","dec":1990,"cl":["Real Madrid"]},{"n":"Cristiano Ronaldo","nat":"Portugal","pos":"Atacante","dec":2000,"cl":["Manchester United","Real Madrid","Juventus","Al-Nassr"],"ach":["ballon","ucl","euro"]},{"n":"Luís Figo","nat":"Portugal","pos":"Ponta","dec":1990,"cl":["Barcelona","Real Madrid"],"ach":["ballon","ucl"]},{"n":"Eusébio","nat":"Portugal","pos":"Atacante","dec":1960,"cl":["Benfica"]},{"n":"Rui Costa","nat":"Portugal","pos":"Meia","dec":1990,"cl":["Fiorentina","Milan"]},{"n":"Deco","nat":"Portugal","pos":"Meia","dec":2000,"cl":["Porto","Barcelona"]},{"n":"Pepe","nat":"Portugal","pos":"Zagueiro","dec":2000,"cl":["Porto","Real Madrid"]},{"n":"Bruno Fernandes","nat":"Portugal","pos":"Meia","dec":2010,"cl":["Sporting","Manchester United"]},{"n":"Bobby Charlton","nat":"Inglaterra","pos":"Meia","dec":1950,"cl":["Manchester United"]},{"n":"Steven Gerrard","nat":"Inglaterra","pos":"Meia","dec":2000,"cl":["Liverpool"]},{"n":"Frank Lampard","nat":"Inglaterra","pos":"Meia","dec":2000,"cl":["Chelsea"],"ach":["ucl"]},{"n":"David Beckham","nat":"Inglaterra","pos":"Meia","dec":1990,"cl":["Manchester United","Real Madrid","Galaxy"]},{"n":"Wayne Rooney","nat":"Inglaterra","pos":"Atacante","dec":2000,"cl":["Everton","Manchester United"]},{"n":"Alan Shearer","nat":"Inglaterra","pos":"Atacante","dec":1990,"cl":["Blackburn","Newcastle"]},{"n":"Gary Lineker","nat":"Inglaterra","pos":"Atacante","dec":1980,"cl":["Everton","Barcelona","Tottenham"]},{"n":"Harry Kane","nat":"Inglaterra","pos":"Atacante","dec":2010,"cl":["Tottenham","Bayern de Munique"]},{"n":"Paul Gascoigne","nat":"Inglaterra","pos":"Meia","dec":1980,"cl":["Tottenham","Lazio"]},{"n":"Peter Shilton","nat":"Inglaterra","pos":"Goleiro","dec":1970,"cl":["Nottingham Forest"]},{"n":"George Best","nat":"Irlanda do Norte","pos":"Ponta","dec":1960,"cl":["Manchester United"]},{"n":"Lev Yashin","nat":"União Soviética","pos":"Goleiro","dec":1950,"cl":["Dínamo de Moscou"]},{"n":"Andriy Shevchenko","nat":"Ucrânia","pos":"Atacante","dec":1990,"cl":["Dínamo de Kiev","Milan","Chelsea"],"ach":["ballon","ucl"]},{"n":"Hristo Stoichkov","nat":"Bulgária","pos":"Atacante","dec":1980,"cl":["CSKA Sofia","Barcelona"]},{"n":"Gheorghe Hagi","nat":"Romênia","pos":"Meia","dec":1980,"cl":["Real Madrid","Galatasaray"]},{"n":"Pavel Nedvěd","nat":"República Tcheca","pos":"Meia","dec":1990,"cl":["Lazio","Juventus"],"ach":["ballon"]},{"n":"Luka Modrić","nat":"Croácia","pos":"Meia","dec":2000,"cl":["Tottenham","Real Madrid"],"ach":["ballon","ucl"]},{"n":"Davor Šuker","nat":"Croácia","pos":"Atacante","dec":1990,"cl":["Sevilla","Real Madrid"]},{"n":"Robert Lewandowski","nat":"Polônia","pos":"Atacante","dec":2010,"cl":["Borussia Dortmund","Bayern de Munique","Barcelona"],"ach":["ucl"]},{"n":"Zbigniew Boniek","nat":"Polônia","pos":"Atacante","dec":1970,"cl":["Juventus"]},{"n":"Ferenc Puskás","nat":"Hungria","pos":"Atacante","dec":1950,"cl":["Real Madrid"]},{"n":"Hidetoshi Nakata","nat":"Japão","pos":"Meia","dec":1990,"cl":["Roma","Parma"]},{"n":"Park Ji-sung","nat":"Coreia do Sul","pos":"Meia","dec":2000,"cl":["PSV","Manchester United"]},{"n":"Son Heung-min","nat":"Coreia do Sul","pos":"Atacante","dec":2010,"cl":["Tottenham"]},{"n":"Didier Drogba","nat":"Costa do Marfim","pos":"Atacante","dec":2000,"cl":["Marselha","Chelsea"],"ach":["ucl"]},{"n":"Samuel Eto'o","nat":"Camarões","pos":"Atacante","dec":2000,"cl":["Barcelona","Inter de Milão"],"ach":["ucl"]},{"n":"Roger Milla","nat":"Camarões","pos":"Atacante","dec":1980,"cl":["Montpellier","Saint-Étienne"]},{"n":"George Weah","nat":"Libéria","pos":"Atacante","dec":1980,"cl":["Milan","PSG"],"ach":["ballon"]},{"n":"Mohamed Salah","nat":"Egito","pos":"Atacante","dec":2010,"cl":["Roma","Liverpool"],"ach":["ucl"]},{"n":"Carlos Valderrama","nat":"Colômbia","pos":"Meia","dec":1980,"cl":["Deportivo Cali","Junior"]},{"n":"James Rodríguez","nat":"Colômbia","pos":"Meia","dec":2010,"cl":["Porto","Monaco","Real Madrid"]},{"n":"Iván Zamorano","nat":"Chile","pos":"Atacante","dec":1990,"cl":["Real Madrid","Inter de Milão"]},{"n":"Iván Córdoba","nat":"Colômbia","pos":"Zagueiro","dec":1990,"cl":["Inter de Milão"]},{"n":"Alexis Sánchez","nat":"Chile","pos":"Atacante","dec":2010,"cl":["Udinese","Barcelona","Arsenal"]},{"n":"Arturo Vidal","nat":"Chile","pos":"Meia","dec":2010,"cl":["Juventus","Bayern de Munique"]},{"n":"Enzo Francescoli","nat":"Uruguai","pos":"Meia","dec":1980,"cl":["River Plate","Marselha"]},{"n":"Diego Forlán","nat":"Uruguai","pos":"Atacante","dec":2000,"cl":["Manchester United","Villarreal","Atlético de Madrid"]},{"n":"Luis Suárez","nat":"Uruguai","pos":"Atacante","dec":2000,"cl":["Ajax","Liverpool","Barcelona"],"ach":["ucl"]},{"n":"Edinson Cavani","nat":"Uruguai","pos":"Atacante","dec":2000,"cl":["Napoli","PSG"]},{"n":"Alfredo Di Stéfano","nat":"Argentina","pos":"Atacante","dec":1950,"cl":["Real Madrid"]},{"n":"Vinícius Júnior","nat":"Brasil","pos":"Ponta","dec":2010,"cl":["Flamengo","Real Madrid"]},{"n":"Rodrygo","nat":"Brasil","pos":"Atacante","dec":2010,"cl":["Santos","Real Madrid"]},{"n":"Casemiro","nat":"Brasil","pos":"Meia","dec":2010,"cl":["São Paulo","Real Madrid","Manchester United"]},{"n":"Thiago Silva","nat":"Brasil","pos":"Zagueiro","dec":2000,"cl":["Milan","PSG","Chelsea"],"ach":["ucl"]},{"n":"Marcelo","nat":"Brasil","pos":"Lateral","dec":2000,"cl":["Fluminense","Real Madrid"],"ach":["ucl"]},{"n":"Dani Alves","nat":"Brasil","pos":"Lateral","dec":2000,"cl":["Sevilla","Barcelona","Juventus"],"ach":["ucl"]},{"n":"Alisson","nat":"Brasil","pos":"Goleiro","dec":2010,"cl":["Internacional","Roma","Liverpool"]},{"n":"Ederson","nat":"Brasil","pos":"Goleiro","dec":2010,"cl":["Benfica","Manchester City"]},{"n":"Gabriel Jesus","nat":"Brasil","pos":"Atacante","dec":2010,"cl":["Palmeiras","Manchester City","Arsenal"]},{"n":"Philippe Coutinho","nat":"Brasil","pos":"Meia","dec":2010,"cl":["Inter de Milão","Liverpool","Barcelona"]},{"n":"David Luiz","nat":"Brasil","pos":"Zagueiro","dec":2000,"cl":["Benfica","Chelsea","PSG"]},{"n":"Júlio César","nat":"Brasil","pos":"Goleiro","dec":2000,"cl":["Flamengo","Inter de Milão"]},{"n":"Maicon","nat":"Brasil","pos":"Lateral","dec":2000,"cl":["Monaco","Inter de Milão"]},{"n":"Lúcio","nat":"Brasil","pos":"Zagueiro","dec":2000,"cl":["Bayer Leverkusen","Bayern de Munique","Inter de Milão"],"ach":["wc2002"]},{"n":"Juninho Pernambucano","nat":"Brasil","pos":"Meia","dec":1990,"cl":["Vasco","Lyon"]},{"n":"Alex","nat":"Brasil","pos":"Meia","dec":1990,"cl":["Palmeiras","Cruzeiro","Fenerbahçe"]},{"n":"Edmundo","nat":"Brasil","pos":"Atacante","dec":1990,"cl":["Vasco","Palmeiras","Fiorentina"]},{"n":"Djalminha","nat":"Brasil","pos":"Meia","dec":1990,"cl":["Palmeiras","Deportivo"]},{"n":"Marta","nat":"Brasil","pos":"Atacante","dec":2000,"cl":["Vasco","Umeå","Orlando Pride"]},{"n":"Formiga","nat":"Brasil","pos":"Meia","dec":1990,"cl":["São José","PSG"]},{"n":"Yaya Touré","nat":"Costa do Marfim","pos":"Meia","dec":2000,"cl":["Barcelona","Manchester City"]},{"n":"Jay-Jay Okocha","nat":"Nigéria","pos":"Meia","dec":1990,"cl":["PSG","Bolton"]},{"n":"Nwankwo Kanu","nat":"Nigéria","pos":"Atacante","dec":1990,"cl":["Ajax","Arsenal"]},{"n":"Michael Essien","nat":"Gana","pos":"Meia","dec":2000,"cl":["Lyon","Chelsea"]},{"n":"Riyad Mahrez","nat":"Argélia","pos":"Ponta","dec":2010,"cl":["Leicester","Manchester City"]},{"n":"Sadio Mané","nat":"Senegal","pos":"Atacante","dec":2010,"cl":["Liverpool","Bayern de Munique"],"ach":["ucl"]},{"n":"Mohamed Aboutrika","nat":"Egito","pos":"Meia","dec":2000,"cl":["Al Ahly"]},{"n":"Abedi Pelé","nat":"Gana","pos":"Meia","dec":1980,"cl":["Marselha"]},{"n":"Andriy Arshavin","nat":"Rússia","pos":"Meia","dec":2000,"cl":["Zenit","Arsenal"]},{"n":"Hakan Şükür","nat":"Turquia","pos":"Atacante","dec":1990,"cl":["Galatasaray"]},{"n":"Georgi Kinkladze","nat":"Geórgia","pos":"Meia","dec":1990,"cl":["Manchester City"]},{"n":"Mladen Petrić","nat":"Croácia","pos":"Atacante","dec":2000,"cl":["Hamburgo"]},{"n":"Robert Prosinečki","nat":"Croácia","pos":"Meia","dec":1990,"cl":["Real Madrid","Barcelona"]},{"n":"Hugo Sánchez","nat":"México","pos":"Atacante","dec":1980,"cl":["Real Madrid"]},{"n":"Rafa Márquez","nat":"México","pos":"Zagueiro","dec":2000,"cl":["Monaco","Barcelona"]},{"n":"Cuauhtémoc Blanco","nat":"México","pos":"Meia-atacante","dec":1990,"cl":["América"]},{"n":"Guillermo Ochoa","nat":"México","pos":"Goleiro","dec":2000,"cl":["América","Standard"]},{"n":"Keylor Navas","nat":"Costa Rica","pos":"Goleiro","dec":2010,"cl":["Levante","Real Madrid","PSG"]},{"n":"Bryan Ruiz","nat":"Costa Rica","pos":"Meia","dec":2010,"cl":["Fulham","Sporting"]},{"n":"Landon Donovan","nat":"Estados Unidos","pos":"Meia","dec":2000,"cl":["Galaxy","Everton"]},{"n":"Clint Dempsey","nat":"Estados Unidos","pos":"Atacante","dec":2000,"cl":["Fulham","Tottenham"]},{"n":"Tim Howard","nat":"Estados Unidos","pos":"Goleiro","dec":2000,"cl":["Manchester United","Everton"]},{"n":"Zlatan Ibrahimović","nat":"Suécia","pos":"Atacante","dec":2000,"cl":["Ajax","Inter de Milão","Milan","PSG","Manchester United"]},{"n":"Henrik Larsson","nat":"Suécia","pos":"Atacante","dec":1990,"cl":["Celtic","Barcelona"]},{"n":"Eric Cantona","nat":"França","pos":"Atacante","dec":1990,"cl":["Leeds","Manchester United"]},{"n":"Ryan Giggs","nat":"País de Gales","pos":"Ponta","dec":1990,"cl":["Manchester United"],"ach":["ucl"]},{"n":"Gareth Bale","nat":"País de Gales","pos":"Ponta","dec":2000,"cl":["Tottenham","Real Madrid"]},{"n":"Roy Keane","nat":"Irlanda","pos":"Meia","dec":1990,"cl":["Manchester United"]},{"n":"Petr Čech","nat":"República Tcheca","pos":"Goleiro","dec":2000,"cl":["Chelsea","Arsenal"],"ach":["ucl"]},{"n":"Jan Oblak","nat":"Eslovênia","pos":"Goleiro","dec":2010,"cl":["Atlético de Madrid"]},{"n":"Edin Džeko","nat":"Bósnia","pos":"Atacante","dec":2000,"cl":["Wolfsburg","Manchester City","Roma"]},{"n":"Kevin De Bruyne","nat":"Bélgica","pos":"Meia","dec":2010,"cl":["Wolfsburg","Manchester City"]},{"n":"Eden Hazard","nat":"Bélgica","pos":"Ponta","dec":2010,"cl":["Lille","Chelsea","Real Madrid"]},{"n":"Romelu Lukaku","nat":"Bélgica","pos":"Atacante","dec":2010,"cl":["Anderlecht","Inter de Milão","Chelsea"]},{"n":"Vincent Kompany","nat":"Bélgica","pos":"Zagueiro","dec":2000,"cl":["Hamburgo","Manchester City"]},{"n":"Jan Vertonghen","nat":"Bélgica","pos":"Zagueiro","dec":2010,"cl":["Ajax","Tottenham"]},{"n":"Virgil van Dijk","nat":"Holanda","pos":"Zagueiro","dec":2010,"cl":["Southampton","Liverpool"],"ach":["ucl"]},{"n":"Erling Haaland","nat":"Noruega","pos":"Atacante","dec":2010,"cl":["Borussia Dortmund","Manchester City"]},{"n":"Nílton Santos","nat":"Brasil","pos":"Lateral","dec":1950,"cl":["Botafogo"],"ach":["wc1958"]},{"n":"Djalma Santos","nat":"Brasil","pos":"Lateral","dec":1950,"cl":["Portuguesa","Palmeiras"],"ach":["wc1958"]},{"n":"Didi","nat":"Brasil","pos":"Meia","dec":1950,"cl":["Botafogo","Fluminense"],"ach":["wc1958"]},{"n":"Vavá","nat":"Brasil","pos":"Atacante","dec":1950,"cl":["Vasco","Atlético-MG"],"ach":["wc1958"]},{"n":"Zagallo","nat":"Brasil","pos":"Ponta","dec":1950,"cl":["Flamengo","Botafogo"],"ach":["wc1958"]},{"n":"Gilmar","nat":"Brasil","pos":"Goleiro","dec":1950,"cl":["Corinthians","Santos"],"ach":["wc1958"]},{"n":"Nilton de Sordi","nat":"Brasil","pos":"Zagueiro","dec":1950,"cl":["São Paulo"]},{"n":"Zito","nat":"Brasil","pos":"Meia","dec":1950,"cl":["Santos"],"ach":["wc1958"]},{"n":"Coutinho (Santos)","nat":"Brasil","pos":"Atacante","dec":1950,"cl":["Santos"]},{"n":"Ademir da Guia","nat":"Brasil","pos":"Meia","dec":1960,"cl":["Palmeiras"]},{"n":"Gérson de Oliveira","nat":"Brasil","pos":"Meia","dec":1960,"cl":["Botafogo","São Paulo"],"ach":["wc1970"]},{"n":"Roberto Dinamite","nat":"Brasil","pos":"Atacante","dec":1970,"cl":["Vasco"]},{"n":"Paulo César Caju","nat":"Brasil","pos":"Ponta","dec":1970,"cl":["Botafogo","Flamengo"]},{"n":"Clodoaldo","nat":"Brasil","pos":"Meia","dec":1960,"cl":["Santos"],"ach":["wc1970"]},{"n":"Marco Antônio","nat":"Brasil","pos":"Lateral","dec":1970,"cl":["Fluminense"],"ach":["wc1970"]},{"n":"Toninho Cerezo","nat":"Brasil","pos":"Meia","dec":1970,"cl":["Atlético-MG","Roma"]},{"n":"Júnior","nat":"Brasil","pos":"Lateral","dec":1970,"cl":["Flamengo","Torino"]},{"n":"Éder","nat":"Brasil","pos":"Atacante","dec":1980,"cl":["Atlético-MG","Grêmio"]},{"n":"Serginho Chulapa","nat":"Brasil","pos":"Atacante","dec":1980,"cl":["São Paulo","Santos"]},{"n":"Renato Gaúcho","nat":"Brasil","pos":"Atacante","dec":1980,"cl":["Grêmio","Fluminense"]},{"n":"Careca","nat":"Brasil","pos":"Atacante","dec":1980,"cl":["Guarani","São Paulo","Napoli"]},{"n":"Casagrande","nat":"Brasil","pos":"Atacante","dec":1980,"cl":["Corinthians","Torino"]},{"n":"Müller (São Paulo)","nat":"Brasil","pos":"Atacante","dec":1980,"cl":["São Paulo"]},{"n":"Branco","nat":"Brasil","pos":"Lateral","dec":1980,"cl":["Grêmio","Porto"],"ach":["wc1994"]},{"n":"Dunga","nat":"Brasil","pos":"Meia","dec":1980,"cl":["Internacional","Fiorentina"],"ach":["wc1994"]},{"n":"Mauro Silva","nat":"Brasil","pos":"Meia","dec":1990,"cl":["Bragantino","Deportivo"],"ach":["wc1994"]},{"n":"Zinho","nat":"Brasil","pos":"Meia","dec":1990,"cl":["Flamengo","Palmeiras"],"ach":["wc1994"]},{"n":"Jorginho","nat":"Brasil","pos":"Lateral","dec":1990,"cl":["Flamengo","Bayern de Munique"],"ach":["wc1994"]},{"n":"Aldair","nat":"Brasil","pos":"Zagueiro","dec":1990,"cl":["Benfica","Roma"],"ach":["wc1994"]},{"n":"Márcio Santos","nat":"Brasil","pos":"Zagueiro","dec":1990,"cl":["Internacional","Bordeaux"],"ach":["wc1994"]},{"n":"Leonardo","nat":"Brasil","pos":"Meia","dec":1990,"cl":["São Paulo","Milan","PSG"],"ach":["wc1994"]},{"n":"Juninho Paulista","nat":"Brasil","pos":"Meia","dec":1990,"cl":["São Paulo","Middlesbrough"],"ach":["wc2002"]},{"n":"Sávio","nat":"Brasil","pos":"Ponta","dec":1990,"cl":["Flamengo","Real Madrid"]},{"n":"Edílson","nat":"Brasil","pos":"Atacante","dec":1990,"cl":["Corinthians","Flamengo"],"ach":["wc2002"]},{"n":"Vampeta","nat":"Brasil","pos":"Meia","dec":1990,"cl":["Corinthians","PSG"],"ach":["wc2002"]},{"n":"Belletti","nat":"Brasil","pos":"Lateral","dec":1990,"cl":["São Paulo","Barcelona"],"ach":["wc2002"]},{"n":"Edmílson","nat":"Brasil","pos":"Zagueiro","dec":1990,"cl":["Lyon","Barcelona"],"ach":["wc2002"]},{"n":"Roque Júnior","nat":"Brasil","pos":"Zagueiro","dec":1990,"cl":["Palmeiras","Milan"],"ach":["wc2002"]},{"n":"Gilberto Silva","nat":"Brasil","pos":"Meia","dec":2000,"cl":["Atlético-MG","Arsenal"],"ach":["wc2002"]},{"n":"Juan","nat":"Brasil","pos":"Zagueiro","dec":2000,"cl":["Flamengo","Roma"]},{"n":"Gilberto","nat":"Brasil","pos":"Lateral","dec":2000,"cl":["Internacional","Tottenham"]},{"n":"Cris","nat":"Brasil","pos":"Zagueiro","dec":2000,"cl":["Cruzeiro","Lyon"]},{"n":"Luisão","nat":"Brasil","pos":"Zagueiro","dec":2000,"cl":["Cruzeiro","Benfica"]},{"n":"Maxwell","nat":"Brasil","pos":"Lateral","dec":2000,"cl":["Ajax","Barcelona","PSG"]},{"n":"Grafite","nat":"Brasil","pos":"Atacante","dec":2000,"cl":["São Paulo","Wolfsburg"]},{"n":"Diego Ribas","nat":"Brasil","pos":"Meia","dec":2000,"cl":["Santos","Werder Bremen","Flamengo"]},{"n":"Alexandre Pato","nat":"Brasil","pos":"Atacante","dec":2000,"cl":["Internacional","Milan"]},{"n":"Hulk","nat":"Brasil","pos":"Atacante","dec":2000,"cl":["Porto","Zenit","Atlético-MG"]},{"n":"Willian","nat":"Brasil","pos":"Ponta","dec":2000,"cl":["Shakhtar","Chelsea"]},{"n":"Oscar","nat":"Brasil","pos":"Meia","dec":2010,"cl":["Internacional","Chelsea"]},{"n":"Fernandinho","nat":"Brasil","pos":"Meia","dec":2010,"cl":["Shakhtar","Manchester City"]},{"n":"Douglas Costa","nat":"Brasil","pos":"Ponta","dec":2010,"cl":["Shakhtar","Bayern de Munique","Juventus"]},{"n":"Firmino","nat":"Brasil","pos":"Atacante","dec":2010,"cl":["Hoffenheim","Liverpool"]},{"n":"Richarlison","nat":"Brasil","pos":"Atacante","dec":2010,"cl":["Watford","Everton","Tottenham"]},{"n":"Antony","nat":"Brasil","pos":"Ponta","dec":2010,"cl":["Ajax","Manchester United"]},{"n":"Bruno Guimarães","nat":"Brasil","pos":"Meia","dec":2010,"cl":["Athletico","Lyon","Newcastle"]},{"n":"Éder Militão","nat":"Brasil","pos":"Zagueiro","dec":2010,"cl":["São Paulo","Porto","Real Madrid"]},{"n":"Gabriel Magalhães","nat":"Brasil","pos":"Zagueiro","dec":2010,"cl":["Lille","Arsenal"]},{"n":"Lucas Paquetá","nat":"Brasil","pos":"Meia","dec":2010,"cl":["Flamengo","Milan","West Ham"]},{"n":"Raphinha","nat":"Brasil","pos":"Ponta","dec":2010,"cl":["Leeds","Barcelona"]},{"n":"Endrick","nat":"Brasil","pos":"Atacante","dec":2020,"cl":["Palmeiras","Real Madrid"]},{"n":"Gabigol","nat":"Brasil","pos":"Atacante","dec":2010,"cl":["Santos","Inter de Milão","Flamengo"],"ach":["liberta"]},{"n":"Pedro","nat":"Brasil","pos":"Atacante","dec":2010,"cl":["Fluminense","Flamengo"],"ach":["liberta"]},{"n":"Everton Ribeiro","nat":"Brasil","pos":"Meia","dec":2010,"cl":["Cruzeiro","Flamengo"],"ach":["liberta"]},{"n":"Bruno Henrique","nat":"Brasil","pos":"Atacante","dec":2010,"cl":["Santos","Flamengo"],"ach":["liberta"]},{"n":"Weverton","nat":"Brasil","pos":"Goleiro","dec":2010,"cl":["Atlético-PR","Palmeiras"]},{"n":"Cássio","nat":"Brasil","pos":"Goleiro","dec":2010,"cl":["Corinthians"]},{"n":"Fábio","nat":"Brasil","pos":"Goleiro","dec":2000,"cl":["Cruzeiro","Fluminense"]},{"n":"Rogério Ceni","nat":"Brasil","pos":"Goleiro","dec":1990,"cl":["São Paulo"]},{"n":"Marcos","nat":"Brasil","pos":"Goleiro","dec":1990,"cl":["Palmeiras"],"ach":["wc2002"]},{"n":"Emerson","nat":"Brasil","pos":"Meia","dec":1990,"cl":["Bayer Leverkusen","Roma","Juventus"]},{"n":"Zé Roberto","nat":"Brasil","pos":"Meia","dec":1990,"cl":["Bayern de Munique","Palmeiras"]},{"n":"Denílson","nat":"Brasil","pos":"Ponta","dec":1990,"cl":["São Paulo","Betis"],"ach":["wc2002"]},{"n":"Viola","nat":"Brasil","pos":"Atacante","dec":1990,"cl":["Corinthians"]},{"n":"Túlio Maravilha","nat":"Brasil","pos":"Atacante","dec":1990,"cl":["Botafogo"]},{"n":"Sonny Anderson","nat":"Brasil","pos":"Atacante","dec":1990,"cl":["Monaco","Barcelona","Lyon"]},{"n":"Giovane Élber","nat":"Brasil","pos":"Atacante","dec":1990,"cl":["Stuttgart","Bayern de Munique"]},{"n":"Aílton","nat":"Brasil","pos":"Atacante","dec":2000,"cl":["Werder Bremen"]},{"n":"Marcelinho Carioca","nat":"Brasil","pos":"Meia","dec":1990,"cl":["Corinthians"]},{"n":"Diego Tardelli","nat":"Brasil","pos":"Atacante","dec":2000,"cl":["Atlético-MG"]},{"n":"Ricardo Oliveira","nat":"Brasil","pos":"Atacante","dec":2000,"cl":["Santos","Betis"]},{"n":"Luís Fabiano","nat":"Brasil","pos":"Atacante","dec":2000,"cl":["São Paulo","Sevilla"]},{"n":"Vágner Love","nat":"Brasil","pos":"Atacante","dec":2000,"cl":["CSKA Moscou","Flamengo"]},{"n":"Jô","nat":"Brasil","pos":"Atacante","dec":2000,"cl":["Corinthians","CSKA Moscou"]},{"n":"Nilmar","nat":"Brasil","pos":"Atacante","dec":2000,"cl":["Internacional","Villarreal"]},{"n":"Fred","nat":"Brasil","pos":"Atacante","dec":2000,"cl":["Fluminense","Lyon"]},{"n":"Diego Souza","nat":"Brasil","pos":"Meia","dec":2000,"cl":["Sport","Botafogo"]},{"n":"Paulinho","nat":"Brasil","pos":"Meia","dec":2010,"cl":["Corinthians","Tottenham","Barcelona"]},{"n":"Renato Augusto","nat":"Brasil","pos":"Meia","dec":2010,"cl":["Flamengo","Corinthians"]},{"n":"Elias","nat":"Brasil","pos":"Meia","dec":2000,"cl":["Corinthians","Atlético-MG"]},{"n":"Ralf","nat":"Brasil","pos":"Meia","dec":2010,"cl":["Corinthians"]},{"n":"Léo Moura","nat":"Brasil","pos":"Lateral","dec":2000,"cl":["Flamengo"]},{"n":"Filipe Luís","nat":"Brasil","pos":"Lateral","dec":2000,"cl":["Atlético de Madrid","Chelsea","Flamengo"]},{"n":"Alex Sandro","nat":"Brasil","pos":"Lateral","dec":2010,"cl":["Porto","Juventus"]},{"n":"Danilo","nat":"Brasil","pos":"Lateral","dec":2010,"cl":["Santos","Real Madrid","Juventus"]},{"n":"Miranda","nat":"Brasil","pos":"Zagueiro","dec":2010,"cl":["São Paulo","Atlético de Madrid","Inter de Milão"]},{"n":"Marquinhos","nat":"Brasil","pos":"Zagueiro","dec":2010,"cl":["Roma","PSG"]},{"n":"Estêvão","nat":"Brasil","pos":"Ponta","dec":2020,"cl":["Palmeiras","Chelsea"]},{"n":"Vitor Roque","nat":"Brasil","pos":"Atacante","dec":2020,"cl":["Athletico","Barcelona"]},{"n":"André","nat":"Brasil","pos":"Meia","dec":2020,"cl":["Fluminense"]},{"n":"John Kennedy","nat":"Brasil","pos":"Atacante","dec":2020,"cl":["Fluminense"]},{"n":"Washington","nat":"Brasil","pos":"Atacante","dec":2000,"cl":["Athletico","Fluminense"]},{"n":"Dodô","nat":"Brasil","pos":"Lateral","dec":2010,"cl":["Coritiba","Fiorentina"]},{"n":"Wendell","nat":"Brasil","pos":"Lateral","dec":2010,"cl":["Palmeiras","Bayer Leverkusen","Porto"]},{"n":"Igor Jesus","nat":"Brasil","pos":"Atacante","dec":2020,"cl":["Botafogo"]},{"n":"Savinho","nat":"Brasil","pos":"Ponta","dec":2020,"cl":["Atlético-MG","Manchester City"]},{"n":"Wesley França","nat":"Brasil","pos":"Lateral","dec":2020,"cl":["Flamengo"]},{"n":"Heung-min Son","nat":"Coreia do Sul","pos":"Ponta","dec":2010,"cl":["Bayer Leverkusen","Tottenham"]}];
+const ACH_LABELS={"wc2002":"Campeão da Copa de 2002","wc1994":"Campeão da Copa de 1994","wc1970":"Campeão da Copa de 1970","wc1958":"Campeão da Copa de 1958","wc2006":"Campeão da Copa de 2006","wc2010":"Campeão da Copa de 2010","wc2014":"Campeão da Copa de 2014","ballon":"Vencedor da Bola de Ouro","ucl":"Campeão da Champions League","euro":"Campeão da Eurocopa","liberta":"Campeão da Libertadores"};
+// ── O Impostor — game logic ──
+const EPOCH=new Date(2025,0,1);
+function dayIndex(){const n=new Date();const t=new Date(n.getFullYear(),n.getMonth(),n.getDate());return Math.floor((t-EPOCH)/86400000);}
+function todayKey(){return "imp_"+dayIndex();}
+
+function rng(seed){let a=seed>>>0;return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};}
+function shuffle(arr,rand){const a=arr.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(rand()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function sample(arr,n,rand){return shuffle(arr,rand).slice(0,n);}
+
+const GROUP_SIZE=5;
+const ACH_LBL=(typeof ACH_LABELS!=="undefined")?ACH_LABELS:{};
+
+// category helpers
+function catsOf(p){
+  const c=[["nat",p.nat],["pos",p.pos],["dec",p.dec]];
+  p.cl.forEach(cl=>c.push(["club",cl]));
+  if(p.ach)p.ach.forEach(a=>c.push(["ach",a]));
+  return c;
+}
+function catKey(c){return c[0]+":"+c[1];}
+function catSetOf(p){const s={};catsOf(p).forEach(c=>s[catKey(c)]=1);return s;}
+function connLabel(c){
+  const t=c[0],v=c[1];
+  if(t==="nat")return "Jogam pela seleção: "+v;
+  if(t==="pos")return "Todos são "+v+"s";
+  if(t==="dec")return "Auge nos anos "+String(v).slice(2);
+  if(t==="club")return "Jogaram no "+v;
+  if(t==="ach")return ACH_LBL[v]||v;
+  return v;
+}
+function connType(c){return {nat:"uma seleção",pos:"uma posição",dec:"uma época",club:"um clube",ach:"uma conquista"}[c[0]]||"algo";}
+
+// Build category->players index
+let CAT_PLAYERS={};
+function buildIndex(){
+  CAT_PLAYERS={};
+  ROSTER.forEach((p,i)=>{catsOf(p).forEach(c=>{const k=catKey(c);(CAT_PLAYERS[k]=CAT_PLAYERS[k]||{cat:c,idx:[]}).idx.push(i);});});
+}
+
+// Generate a puzzle: secret connection + (N-1) legit + 1 plausible impostor (unique)
+function genPuzzle(seed,target){
+  target=target||"medio";
+  const rand=rng(seed);
+  const viable=Object.values(CAT_PLAYERS).filter(o=>o.idx.length>=GROUP_SIZE);
+  const order=shuffle(viable,rand);
+  for(const entry of order){
+    const conn=entry.cat, connKey=catKey(conn);
+    const legitPool=entry.idx;
+    if(legitPool.length<GROUP_SIZE-1)continue;
+    const legit=sample(legitPool,GROUP_SIZE-1,rand);
+    // traits shared by legit (minus the connection)
+    const legitTraits={};
+    legit.forEach(i=>{const cs=catSetOf(ROSTER[i]);for(const k in cs)if(k!==connKey)legitTraits[k]=1;});
+    const connMembers={};legitPool.forEach(i=>connMembers[i]=1);
+    // candidate impostors: NOT in connection (share count drives difficulty)
+    const cands=[];
+    for(let j=0;j<ROSTER.length;j++){
+      if(connMembers[j]||legit.includes(j))continue;
+      const cs=catSetOf(ROSTER[j]);
+      let shared=0;for(const k in legitTraits)if(cs[k])shared++;
+      if(shared>0)cands.push([j,shared]); // must share >=1 to be plausible
+    }
+    if(!cands.length)continue;
+    // pick impostor pool by target difficulty
+    let pool;
+    if(target==="facil"){cands.sort((a,b)=>a[1]-b[1]);pool=cands.slice(0,6);}
+    else if(target==="dificil"){cands.sort((a,b)=>b[1]-a[1]);pool=cands.slice(0,6);}
+    else{cands.sort((a,b)=>a[1]-b[1]);const mid=cands.length>>1;pool=cands.slice(Math.max(0,mid-3),mid+3);}
+    if(!pool.length)continue;
+    const impostor=pool[Math.floor(rand()*pool.length)][0];
+    // VERIFY: exactly one member lacks the connection, and it's the impostor
+    const members=legit.concat([impostor]);
+    const lacking=members.filter(m=>!catSetOf(ROSTER[m])[connKey]);
+    if(lacking.length!==1||lacking[0]!==impostor)continue;
+    const diff=(function(){const cs=catSetOf(ROSTER[impostor]);let n=0;for(const k in legitTraits)if(cs[k])n++;return n;})();
+    const shuffled=shuffle(members,rand);
+    return {conn,connKey,legit,impostor,members:shuffled,difficulty:diff,target};
+  }
+  return genPuzzle(seed+1,target);
+}
+// daily difficulty rises through the week: Mon easy → Sun hard (like NYT)
+function dailyTarget(){
+  const dow=new Date().getDay(); // 0 Sun .. 6 Sat
+  if(dow===0||dow===6)return "dificil";       // weekend = hard
+  if(dow===1||dow===2)return "facil";          // Mon/Tue = easy
+  return "medio";                               // Wed-Fri = medium
+}
+function targetLabel(t){return {facil:"Fácil",medio:"Médio",dificil:"Difícil"}[t]||"Médio";}
+
+// Build progressive clues for a puzzle (revealed one at a time) — investigation tone
+function buildClues(pz){
+  const clues=[];
+  const c=pz.conn, n=GROUP_SIZE-1;
+  // Clue 1: the TYPE of connection
+  clues.push("🗂️ Os arquivos indicam que a ligação entre eles é <b>"+connType(c)+"</b>.");
+  // Clue 2: narrowing hint by type
+  if(c[0]==="club") clues.push("🏟️ "+n+" dos suspeitos defenderam <b>o mesmo clube</b> em algum momento da carreira.");
+  else if(c[0]==="ach") clues.push("🏆 "+n+" deles dividem <b>o mesmo título ou prêmio</b> na galeria.");
+  else if(c[0]==="nat") clues.push("🌍 "+n+" deles vestiram <b>a mesma camisa nacional</b>.");
+  else if(c[0]==="pos") clues.push("📋 "+n+" deles ocupavam <b>a mesma posição</b> em campo.");
+  else if(c[0]==="dec") clues.push("⏳ "+n+" deles tiveram <b>o auge na mesma década</b>.");
+  // Clue 3: alibi — one confirmed innocent
+  const legitName=ROSTER[pz.legit[0]].n;
+  clues.push("✔️ Álibi confirmado: <b>"+legitName+"</b> pertence ao grupo — <b>não</b> é o impostor.");
+  // Clue 4: the full connection revealed
+  clues.push("🔓 Conexão decifrada: <b>"+connLabel(c)+"</b>. O intruso é quem não se encaixa nisso.");
+  return clues;
+}
+
+// ── state ──
+let mode="daily", puzzle, clues, cluesShown, selected, over, won, soundOn=true, score=0, currentSeed=0;
+let infDifficulty="medio", curTarget="medio";
+const MAX_CLUES=4;
+
+function init(){
+  try{soundOn=localStorage.getItem("imp_sound")!=="0";}catch(e){}
+  try{infDifficulty=localStorage.getItem("imp_diff")||"medio";}catch(e){}
+  updateSoundBtn();
+  buildIndex();
+  startGame(dayIndex(),"daily");
+  maybeOnboard();
+}
+
+function startGame(seed,gameMode){
+  mode=gameMode; currentSeed=seed;
+  curTarget=(mode==="daily")?dailyTarget():infDifficulty;
+  puzzle=genPuzzle(seed,curTarget);
+  clues=buildClues(puzzle);
+  cluesShown=1;   // first clue always visible
+  selected=-1; over=false; won=false;
+  document.getElementById("result").classList.remove("show");
+  document.getElementById("accuse-area").style.display="block";
+  document.getElementById("btn-clue").style.display="block";
+  // restore (daily only)
+  if(mode==="daily"){
+    try{const s=JSON.parse(localStorage.getItem(todayKey())||"null");
+      if(s){cluesShown=s.cluesShown||1;
+        if(s.over){over=true;won=s.won;selected=s.selected;score=s.score;}}
+    }catch(e){}
+  }
+  renderClues(); renderSuspects(); updateAccuse(); renderDiffBadge();
+  document.getElementById("tab-daily").classList.toggle("active",mode==="daily");
+  document.getElementById("tab-infinite").classList.toggle("active",mode==="infinite");
+  if(over)finish(true);
+}
+function nextInfinite(){startGame(1000000+Math.floor(Math.random()*9000000),"infinite");}
+function switchMode(m){
+  if(m===mode && !over && m==="daily")return;
+  if(m==="daily")startGame(dayIndex(),"daily");
+  else startGame(1000000+Math.floor(Math.random()*9000000),"infinite");
+}
+function setInfDifficulty(d){
+  infDifficulty=d;try{localStorage.setItem("imp_diff",d);}catch(e){}
+  if(mode==="infinite")startGame(1000000+Math.floor(Math.random()*9000000),"infinite");
+  else renderDiffBadge();
+}
+function renderDiffBadge(){
+  const badge=document.getElementById("diff-badge");if(!badge)return;
+  const cls={facil:"d-easy",medio:"d-med",dificil:"d-hard"}[curTarget]||"d-med";
+  badge.className="diff-badge "+cls;
+  badge.textContent=(mode==="daily"?"Hoje: ":"")+targetLabel(curTarget);
+  // infinite difficulty picker visibility
+  const picker=document.getElementById("diff-picker");
+  if(picker)picker.style.display=(mode==="infinite")?"flex":"none";
+  if(mode==="infinite"){
+    ["facil","medio","dificil"].forEach(d=>{
+      const b=document.getElementById("diff-"+d);
+      if(b)b.classList.toggle("active",d===infDifficulty);
+    });
+  }
+}
+
+// ── stats & streak ──
+function loadStats(){
+  try{return JSON.parse(localStorage.getItem("imp_stats")||"null")||{played:0,won:0,streak:0,best:0,lastDay:null,totalScore:0};}
+  catch(e){return {played:0,won:0,streak:0,best:0,lastDay:null,totalScore:0};}
+}
+function saveStats(st){try{localStorage.setItem("imp_stats",JSON.stringify(st));}catch(e){}}
+function recordResult(){
+  // only daily games count toward streak/stats
+  if(mode!=="daily")return;
+  const st=loadStats();
+  const di=dayIndex();
+  if(st.lastDay===di)return; // already recorded today
+  st.played++;
+  if(won){
+    st.won++;
+    st.totalScore+=score;
+    // streak: consecutive days won
+    if(st.lastWonDay===di-1)st.streak++;
+    else st.streak=1;
+    st.lastWonDay=di;
+    if(st.streak>st.best)st.best=st.streak;
+  }else{
+    st.streak=0;
+  }
+  st.lastDay=di;
+  saveStats(st);
+}
+
+function save(){
+  if(mode!=="daily")return;
+  try{localStorage.setItem(todayKey(),JSON.stringify({cluesShown,over,won,selected,score}));}catch(e){}
+}
+
+function renderClues(){
+  const list=document.getElementById("clue-list");
+  list.innerHTML="";
+  for(let i=0;i<MAX_CLUES;i++){
+    const div=document.createElement("div");
+    if(i<cluesShown){div.className="clue";div.innerHTML="<b>Pista "+(i+1)+":</b> "+clues[i];}
+    else{div.className="clue locked";div.textContent="Pista "+(i+1)+" — bloqueada";}
+    list.appendChild(div);
+  }
+  document.getElementById("clue-count").textContent=cluesShown+"/"+MAX_CLUES+" reveladas";
+  const btn=document.getElementById("btn-clue");
+  if(cluesShown>=MAX_CLUES||over){btn.disabled=true;btn.textContent=over?"—":"Todas as pistas reveladas";}
+  else{btn.disabled=false;btn.textContent="Revelar próxima pista (−"+clueCost(cluesShown)+" pts)";}
+}
+function clueCost(n){return [0,20,20,20,20][n]||20;}
+
+function revealClue(){
+  if(over||cluesShown>=MAX_CLUES)return;
+  cluesShown++;
+  playSound("clue"); renderClues(); save();
+}
+
+// deterministic varied avatar per player (so it's stable across renders)
+function avatarFor(name){
+  const faces=["🧑‍🦱","🧔","🧑‍🦰","👨‍🦳","🧑","👨","🧑‍🦲","👨‍🦰"];
+  let h=0;for(let i=0;i<name.length;i++)h=(h*31+name.charCodeAt(i))>>>0;
+  return faces[h%faces.length];
+}
+function renderSuspects(){
+  const box=document.getElementById("suspects");
+  box.innerHTML="";
+  puzzle.members.forEach((mi,k)=>{
+    const el=document.createElement("div");
+    el.className="suspect"+(selected===mi?" sel":"");
+    if(over){
+      if(mi===puzzle.impostor)el.className+=" reveal-imp";
+      else el.className+=" cleared";
+    }
+    const fileNo="#"+String((currentSeed%900)+101+k).slice(-3);
+    const tag=over?(mi===puzzle.impostor?'<span class="badge imp">IMPOSTOR</span>':'<span class="badge ok">LIMPO</span>'):'';
+    el.innerHTML='<span class="fileno">FICHA '+fileNo+'</span>'
+      +'<div class="mug">'+avatarFor(ROSTER[mi].n)+'</div>'
+      +'<div class="nm">'+ROSTER[mi].n+'</div>'+tag;
+    if(!over)el.onclick=()=>selectSuspect(mi);
+    box.appendChild(el);
+  });
+}
+
+function selectSuspect(mi){
+  if(over)return;
+  selected=(selected===mi)?-1:mi;
+  renderSuspects(); updateAccuse(); playSound("tick");
+}
+function updateAccuse(){document.getElementById("btn-accuse").disabled=(selected<0||over);}
+
+function accuse(){
+  if(selected<0||over)return;
+  over=true; won=(selected===puzzle.impostor);
+  // score: base 100 minus clue costs; 0 if wrong
+  let s=100;for(let i=1;i<cluesShown;i++)s-=clueCost(i);
+  score=won?Math.max(s,20):0;
+  recordResult();
+  if(won)playSound("win");else playSound("lose");
+  renderSuspects(); save(); finish();
+}
+
+function finish(restoring){
+  over=true;
+  document.getElementById("accuse-area").style.display="none";
+  document.getElementById("btn-clue").style.display="none";
+  renderClues(); renderSuspects();
+  const r=document.getElementById("result");r.classList.add("show");
+  const v=document.getElementById("verdict");
+  v.textContent=won?"Caso resolvido!":"Você foi enganado";
+  v.className="verdict "+(won?"win":"lose");
+  const imp=ROSTER[puzzle.impostor].n;
+  document.getElementById("reveal").innerHTML=
+    "O impostor era <span class='imp'>"+imp+"</span>.<br>A conexão do grupo: <b>"+connLabel(puzzle.conn)+"</b>"
+    +"<br><span style='font-size:12px;color:var(--mute)'>("+imp+" não se encaixa nessa conexão)</span>";
+  document.getElementById("score-line").innerHTML=won?
+    ("Pontuação: <span class='pts'>"+score+"</span> · "+cluesShown+" pista(s) · "+targetLabel(curTarget)):
+    ("Pistas usadas: "+cluesShown+" · sem pontos desta vez");
+  renderStatsPanel();
+  const again=document.getElementById("btn-again");
+  again.style.display="inline-block";
+  again.textContent=mode==="daily"?"Jogar mais ⚽":"Outro caso ⚽";
+  if(!restoring)save();
+  const ni=document.getElementById("next-in");
+  if(mode==="daily"){ni.style.display="block";tickCountdown();}
+  else{ni.style.display="none";if(cdTimer)clearInterval(cdTimer);}
+}
+
+function renderStatsPanel(){
+  const el=document.getElementById("stats-panel");if(!el)return;
+  const st=loadStats();
+  const rate=st.played?Math.round(100*st.won/st.played):0;
+  const avg=st.won?Math.round(st.totalScore/st.won):0;
+  el.innerHTML=
+    '<div class="stat"><div class="sv">'+st.played+'</div><div class="sl">casos</div></div>'
+    +'<div class="stat"><div class="sv">'+rate+'%</div><div class="sl">acerto</div></div>'
+    +'<div class="stat"><div class="sv">'+st.streak+'</div><div class="sl">sequência</div></div>'
+    +'<div class="stat"><div class="sv">'+st.best+'</div><div class="sl">melhor</div></div>'
+    +'<div class="stat"><div class="sv">'+avg+'</div><div class="sl">média pts</div></div>';
+  el.style.display="grid";
+}
+
+// ── share ──
+function buildShareText(){
+  const r=won?"🕵️ Desmascarei o impostor!":"🕵️ Fui enganado…";
+  return "O Impostor #"+dayIndex()+"\n"+r+(won?(" ("+score+" pts, "+cluesShown+" pista"+(cluesShown>1?"s":"")+")"):"")+"\n\noimpostor.futzone.com.br";
+}
+function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function shareImage(){
+  const W=600,H=720,canvas=document.createElement("canvas");canvas.width=W;canvas.height=H;
+  const ctx=canvas.getContext("2d");
+  ctx.fillStyle="#0d0e12";ctx.fillRect(0,0,W,H);
+  // spotlight
+  const g=ctx.createRadialGradient(W/2,40,30,W/2,40,420);
+  g.addColorStop(0,"rgba(255,194,75,.14)");g.addColorStop(1,"rgba(255,194,75,0)");
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle="#2a2e3a";ctx.lineWidth=2;roundRect(ctx,16,16,W-32,H-32,18);ctx.stroke();
+  ctx.textAlign="center";
+  // title two-tone measured
+  ctx.font="bold 44px Arial";
+  const t1="O ", t2="IMPOSTOR";
+  const w1=ctx.measureText(t1).width,w2=ctx.measureText(t2).width;
+  const sx=(W-(w1+w2))/2;ctx.textAlign="left";
+  ctx.fillStyle="#eef0f4";ctx.fillText(t1,sx,92);
+  ctx.fillStyle="#ff5252";ctx.fillText(t2,sx+w1,92);
+  ctx.textAlign="center";
+  ctx.fillStyle="#8a8f9e";ctx.font="18px Arial";ctx.fillText("Caso #"+dayIndex(),W/2,124);
+  // verdict
+  ctx.fillStyle=won?"#37d98a":"#ff5252";ctx.font="bold 34px Arial";
+  ctx.fillText(won?"CASO RESOLVIDO":"FUI ENGANADO",W/2,184);
+  // suspect silhouettes row, impostor highlighted
+  const n=puzzle.members.length, cell=80, gap=14, totW=n*cell+(n-1)*gap, sx2=(W-totW)/2;
+  let x=sx2, y=240;
+  puzzle.members.forEach(mi=>{
+    const isImp=mi===puzzle.impostor;
+    ctx.fillStyle=isImp?"rgba(255,82,82,.2)":"#15171e";
+    roundRect(ctx,x,y,cell,cell,12);ctx.fill();
+    ctx.strokeStyle=isImp?"#ff5252":"#2a2e3a";ctx.lineWidth=2;roundRect(ctx,x,y,cell,cell,12);ctx.stroke();
+    ctx.font="34px Arial";ctx.fillStyle=isImp?"#ff7b7b":"#5a5f6e";ctx.textAlign="center";
+    ctx.fillText("🕴️",x+cell/2,y+cell/2+6);
+    if(isImp){ctx.fillStyle="#ff5252";ctx.font="bold 20px Arial";ctx.fillText("✗",x+cell-12,y+20);}
+    x+=cell+gap;
+  });
+  // score / clues
+  ctx.fillStyle="#cdd2dd";ctx.font="20px Arial";
+  if(won)ctx.fillText("Pontuação: "+score+" · "+cluesShown+" pista(s) · "+targetLabel(curTarget),W/2,400);
+  else ctx.fillText("O impostor escapou desta vez",W/2,400);
+  // connection (spoiler-light: only shown as the theme)
+  ctx.fillStyle="#ffc24b";ctx.font="bold 22px Arial";
+  ctx.fillText("A conexão era:",W/2,460);
+  ctx.fillStyle="#eef0f4";ctx.font="bold 26px Arial";
+  let lab=connLabel(puzzle.conn);
+  while(ctx.measureText(lab).width>W-90&&lab.length>6){lab=lab.slice(0,-2);}
+  ctx.fillText(lab,W/2,494);
+  // challenge line
+  ctx.fillStyle="#8a8f9e";ctx.font="17px Arial";
+  ctx.fillText("Você consegue achar o impostor?",W/2,560);
+  // footer
+  ctx.fillStyle="#ff5252";ctx.font="bold 20px Arial";ctx.fillText("oimpostor.futzone.com.br",W/2,H-40);
+  canvas.toBlob(blob=>{
+    if(!blob){copy(buildShareText());return;}
+    const file=new File([blob],"o-impostor.png",{type:"image/png"});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      navigator.share({files:[file],text:buildShareText()}).catch(()=>dl(blob));
+    }else dl(blob);
+  },"image/png");
+}
+function dl(blob){try{const u=URL.createObjectURL(blob);const a=document.createElement("a");a.href=u;a.download="o-impostor.png";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);showToast("Imagem baixada!");}catch(e){copy(buildShareText());}}
+function copy(t){try{navigator.clipboard.writeText(t).then(()=>showToast("Resultado copiado!"));}catch(e){}}
+
+// ── countdown ──
+let cdTimer=null;
+function tickCountdown(){
+  const el=document.getElementById("next-in");if(!el)return;
+  function upd(){const now=new Date();const t=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1)-now;
+    const h=Math.floor(t/3600000),m=Math.floor(t%3600000/60000),s=Math.floor(t%60000/1000);
+    el.textContent="Novo caso em "+String(h).padStart(2,"0")+":"+String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");}
+  upd();if(cdTimer)clearInterval(cdTimer);cdTimer=setInterval(upd,1000);
+}
+
+// ── sound ──
+let actx=null;
+function playSound(type){
+  if(!soundOn)return;
+  try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    const o=actx.createOscillator(),g=actx.createGain();o.connect(g);g.connect(actx.destination);
+    const f={tick:440,clue:560,win:780,lose:150}[type]||440;
+    o.frequency.value=f;o.type=type==="lose"?"sawtooth":"sine";
+    g.gain.setValueAtTime(.0001,actx.currentTime);g.gain.exponentialRampToValueAtTime(.12,actx.currentTime+.01);
+    g.gain.exponentialRampToValueAtTime(.0001,actx.currentTime+.25);
+    o.start();o.stop(actx.currentTime+.26);
+  }catch(e){}
+}
+function toggleSound(){soundOn=!soundOn;try{localStorage.setItem("imp_sound",soundOn?"1":"0");}catch(e){}updateSoundBtn();if(soundOn)playSound("clue");}
+function updateSoundBtn(){const b=document.getElementById("btn-sound");if(b)b.textContent=soundOn?"🔊":"🔇";}
+
+// ── modals ──
+function openModal(html){document.getElementById("modal-content").innerHTML=html;document.getElementById("overlay").classList.add("show");}
+function closeModal(){document.getElementById("overlay").classList.remove("show");}
+function closeModalBg(e){if(e.target.id==="overlay")closeModal();}
+function showHelp(){
+  openModal('<button class="close" onclick="closeModal()">×</button><h2>🕵️ Como jogar</h2>'
+    +'<p>Você vê <b>5 craques</b> que parecem ter uma conexão em comum (mesmo clube, seleção, conquista...).</p>'
+    +'<p>Mas <b>um deles é o impostor</b> — não compartilha essa conexão. Os outros 4, sim.</p>'
+    +'<p>No começo você não sabe qual é a conexão. Revele <b>pistas</b> para descobrir — mas cada pista reduz sua pontuação.</p>'
+    +'<p>Quando achar que sabe, <b>acuse o impostor</b>. Atenção: você só tem <b>UM palpite</b>!</p>'
+    +'<p>Quanto menos pistas usar, mais pontos. Um novo caso a cada dia.</p>'
+    +'<p>📈 A dificuldade do caso diário muda durante a semana (segunda mais fácil, fim de semana mais difícil). No modo <b>Infinito</b>, você escolhe o nível.</p>'
+    +'<p>🔥 Mantenha sua <b>sequência</b> resolvendo casos dias seguidos!</p>');
+}
+function maybeOnboard(){
+  let seen=false;try{seen=localStorage.getItem("imp_onboarded")==="1";}catch(e){}
+  if(seen)return;
+  openModal('<button class="close" onclick="finishOnboard()">×</button>'
+    +'<div style="text-align:center;margin-bottom:6px;"><div style="font-family:\'Oswald\',sans-serif;font-size:13px;letter-spacing:3px;color:#8a8f9e;">BEM-VINDO A</div>'
+    +'<div style="font-family:\'Oswald\',sans-serif;font-size:28px;font-weight:700;">O <span style="color:#ff5252">IMPOSTOR</span></div></div>'
+    +'<p style="margin-top:14px;"><b>🕵️ A missão:</b> 5 craques parecem ter algo em comum. Um é o impostor. Descubra qual.</p>'
+    +'<p><b>🔍 As pistas:</b> revele pistas para entender a conexão — mas cada uma custa pontos.</p>'
+    +'<p><b>⚠️ O risco:</b> você só tem <b>um palpite</b>. Escolha com cuidado.</p>'
+    +'<button class="onb-cta" onclick="finishOnboard()">Investigar ⚽</button>');
+}
+function finishOnboard(){try{localStorage.setItem("imp_onboarded","1");}catch(e){}closeModal();}
+function showToast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),1800);}
+
+document.getElementById("share").addEventListener("click",()=>{try{shareImage();}catch(e){copy(buildShareText());}});
+
+init();
+if("serviceWorker" in navigator && location.protocol.startsWith("http")){navigator.serviceWorker.register("./sw.js").catch(()=>{});}
+
+</script>
+</body>
+</html>
